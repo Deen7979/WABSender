@@ -4,6 +4,8 @@ class WhatsAppService {
   constructor() {
     this.phoneNumberId = process.env.PHONE_NUMBER_ID;
     this.accessToken = process.env.WHATSAPP_TOKEN;
+    // Using v18.0 as default - update to latest version as needed
+    // Check https://developers.facebook.com/docs/graph-api/changelog for latest versions
     this.apiVersion = process.env.API_VERSION || 'v18.0';
     this.baseUrl = `https://graph.facebook.com/${this.apiVersion}/${this.phoneNumberId}`;
   }

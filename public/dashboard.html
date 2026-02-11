@@ -404,8 +404,11 @@ Content-Type: application/json
             // Show selected tab content
             document.getElementById(tabName).classList.add('active');
 
-            // Activate selected tab
-            event.target.classList.add('active');
+            // Activate selected tab - find the tab by checking which one was clicked
+            const activeTab = document.querySelector(`.tab[onclick*="${tabName}"]`);
+            if (activeTab) {
+                activeTab.classList.add('active');
+            }
         }
 
         function showResponse(elementId, success, message) {
