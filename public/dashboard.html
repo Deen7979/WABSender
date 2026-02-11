@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WABSender - WhatsApp Cloud API Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .response {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            display: none;
+        }
+
+        .response.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .response.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            color: #667eea;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+
+        .info-box p {
+            margin: 5px 0;
+            color: #1976D2;
+        }
+
+        .code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 13px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📱 WABSender</h1>
+            <p>WhatsApp Cloud API SaaS Dashboard</p>
+        </div>
+
+        <div class="card">
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('text')">Text Message</button>
+                <button class="tab" onclick="showTab('media')">Media</button>
+                <button class="tab" onclick="showTab('template')">Template</button>
+                <button class="tab" onclick="showTab('buttons')">Buttons</button>
+                <button class="tab" onclick="showTab('api')">API Docs</button>
+            </div>
+
+            <!-- Text Message Tab -->
+            <div id="text" class="tab-content active">
+                <h2>Send Text Message</h2>
+                <form id="textForm">
+                    <div class="form-group">
+                        <label>Recipient Phone Number (with country code, no +)</label>
+                        <input type="tel" id="textTo" placeholder="1234567890" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Message</label>
+                        <textarea id="textMessage" placeholder="Enter your message here..." required></textarea>
+                    </div>
+                    <button type="submit" class="btn">Send Message</button>
+                    <div id="textResponse" class="response"></div>
+                </form>
+            </div>
+
+            <!-- Media Message Tab -->
+            <div id="media" class="tab-content">
+                <h2>Send Media Message</h2>
+                <form id="mediaForm">
+                    <div class="form-group">
+                        <label>Recipient Phone Number</label>
+                        <input type="tel" id="mediaTo" placeholder="1234567890" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Media Type</label>
+                        <select id="mediaType" required>
+                            <option value="image">Image</option>
+                            <option value="video">Video</option>
+                            <option value="document">Document</option>
+                            <option value="audio">Audio</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Media URL</label>
+                        <input type="url" id="mediaUrl" placeholder="https://example.com/image.jpg" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Caption (optional, for image/video)</label>
+                        <input type="text" id="mediaCaption" placeholder="Your caption here">
+                    </div>
+                    <div class="form-group">
+                        <label>Filename (optional, for document)</label>
+                        <input type="text" id="mediaFilename" placeholder="document.pdf">
+                    </div>
+                    <button type="submit" class="btn">Send Media</button>
+                    <div id="mediaResponse" class="response"></div>
+                </form>
+            </div>
+
+            <!-- Template Message Tab -->
+            <div id="template" class="tab-content">
+                <h2>Send Template Message</h2>
+                <div class="info-box">
+                    <p><strong>Note:</strong> Templates must be pre-approved in your Meta Business Manager.</p>
+                </div>
+                <form id="templateForm">
+                    <div class="form-group">
+                        <label>Recipient Phone Number</label>
+                        <input type="tel" id="templateTo" placeholder="1234567890" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Template Name</label>
+                        <input type="text" id="templateName" placeholder="hello_world" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Language Code</label>
+                        <input type="text" id="templateLang" placeholder="en_US" value="en_US" required>
+                    </div>
+                    <button type="submit" class="btn">Send Template</button>
+                    <div id="templateResponse" class="response"></div>
+                </form>
+            </div>
+
+            <!-- Buttons Message Tab -->
+            <div id="buttons" class="tab-content">
+                <h2>Send Interactive Buttons</h2>
+                <div class="info-box">
+                    <p><strong>Note:</strong> Maximum 3 buttons, each title max 20 characters.</p>
+                </div>
+                <form id="buttonsForm">
+                    <div class="form-group">
+                        <label>Recipient Phone Number</label>
+                        <input type="tel" id="buttonsTo" placeholder="1234567890" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Header Text (optional)</label>
+                        <input type="text" id="buttonsHeader" placeholder="Optional header">
+                    </div>
+                    <div class="form-group">
+                        <label>Body Text</label>
+                        <textarea id="buttonsBody" placeholder="Choose an option..." required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Footer Text (optional)</label>
+                        <input type="text" id="buttonsFooter" placeholder="Optional footer">
+                    </div>
+                    <div class="form-group">
+                        <label>Button 1 Title</label>
+                        <input type="text" id="button1" placeholder="Option 1" maxlength="20" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Button 2 Title</label>
+                        <input type="text" id="button2" placeholder="Option 2" maxlength="20">
+                    </div>
+                    <div class="form-group">
+                        <label>Button 3 Title</label>
+                        <input type="text" id="button3" placeholder="Option 3" maxlength="20">
+                    </div>
+                    <button type="submit" class="btn">Send Buttons</button>
+                    <div id="buttonsResponse" class="response"></div>
+                </form>
+            </div>
+
+            <!-- API Documentation Tab -->
+            <div id="api" class="tab-content">
+                <h2>API Documentation</h2>
+                
+                <h3 style="margin-top: 20px;">Send Text Message</h3>
+                <pre>POST /api/whatsapp/send
+Content-Type: application/json
+
+{
+  "to": "1234567890",
+  "message": "Hello from WABSender!"
+}</pre>
+
+                <h3 style="margin-top: 20px;">Send Media Message</h3>
+                <pre>POST /api/whatsapp/send-media
+Content-Type: application/json
+
+{
+  "to": "1234567890",
+  "mediaType": "image",
+  "mediaUrl": "https://example.com/image.jpg",
+  "caption": "Check this out!"
+}</pre>
+
+                <h3 style="margin-top: 20px;">Send Template Message</h3>
+                <pre>POST /api/whatsapp/send-template
+Content-Type: application/json
+
+{
+  "to": "1234567890",
+  "templateName": "hello_world",
+  "languageCode": "en_US",
+  "components": []
+}</pre>
+
+                <h3 style="margin-top: 20px;">Send Interactive Buttons</h3>
+                <pre>POST /api/whatsapp/send-buttons
+Content-Type: application/json
+
+{
+  "to": "1234567890",
+  "bodyText": "Choose an option",
+  "buttons": [
+    {"id": "1", "title": "Option 1"},
+    {"id": "2", "title": "Option 2"}
+  ],
+  "headerText": "Welcome",
+  "footerText": "Powered by WABSender"
+}</pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showTab(tabName) {
+            // Hide all tab contents
+            const contents = document.querySelectorAll('.tab-content');
+            contents.forEach(content => content.classList.remove('active'));
+
+            // Deactivate all tabs
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+
+            // Activate selected tab
+            event.target.classList.add('active');
+        }
+
+        function showResponse(elementId, success, message) {
+            const responseEl = document.getElementById(elementId);
+            responseEl.className = `response ${success ? 'success' : 'error'}`;
+            responseEl.textContent = message;
+            responseEl.style.display = 'block';
+
+            setTimeout(() => {
+                responseEl.style.display = 'none';
+            }, 5000);
+        }
+
+        // Text Message Form
+        document.getElementById('textForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('.btn');
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+
+            try {
+                const response = await fetch('/api/whatsapp/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        to: document.getElementById('textTo').value,
+                        message: document.getElementById('textMessage').value
+                    })
+                });
+
+                const data = await response.json();
+                showResponse('textResponse', data.success, 
+                    data.success ? 'Message sent successfully!' : `Error: ${data.error?.message || JSON.stringify(data.error)}`
+                );
+
+                if (data.success) {
+                    e.target.reset();
+                }
+            } catch (error) {
+                showResponse('textResponse', false, `Error: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Send Message';
+            }
+        });
+
+        // Media Message Form
+        document.getElementById('mediaForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('.btn');
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+
+            try {
+                const response = await fetch('/api/whatsapp/send-media', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        to: document.getElementById('mediaTo').value,
+                        mediaType: document.getElementById('mediaType').value,
+                        mediaUrl: document.getElementById('mediaUrl').value,
+                        caption: document.getElementById('mediaCaption').value,
+                        filename: document.getElementById('mediaFilename').value
+                    })
+                });
+
+                const data = await response.json();
+                showResponse('mediaResponse', data.success, 
+                    data.success ? 'Media sent successfully!' : `Error: ${data.error?.message || JSON.stringify(data.error)}`
+                );
+
+                if (data.success) {
+                    e.target.reset();
+                }
+            } catch (error) {
+                showResponse('mediaResponse', false, `Error: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Send Media';
+            }
+        });
+
+        // Template Message Form
+        document.getElementById('templateForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('.btn');
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+
+            try {
+                const response = await fetch('/api/whatsapp/send-template', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        to: document.getElementById('templateTo').value,
+                        templateName: document.getElementById('templateName').value,
+                        languageCode: document.getElementById('templateLang').value
+                    })
+                });
+
+                const data = await response.json();
+                showResponse('templateResponse', data.success, 
+                    data.success ? 'Template sent successfully!' : `Error: ${data.error?.message || JSON.stringify(data.error)}`
+                );
+
+                if (data.success) {
+                    e.target.reset();
+                    document.getElementById('templateLang').value = 'en_US';
+                }
+            } catch (error) {
+                showResponse('templateResponse', false, `Error: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Send Template';
+            }
+        });
+
+        // Buttons Message Form
+        document.getElementById('buttonsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('.btn');
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+
+            try {
+                const buttons = [];
+                const button1 = document.getElementById('button1').value;
+                const button2 = document.getElementById('button2').value;
+                const button3 = document.getElementById('button3').value;
+
+                if (button1) buttons.push({ id: '1', title: button1 });
+                if (button2) buttons.push({ id: '2', title: button2 });
+                if (button3) buttons.push({ id: '3', title: button3 });
+
+                const response = await fetch('/api/whatsapp/send-buttons', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        to: document.getElementById('buttonsTo').value,
+                        bodyText: document.getElementById('buttonsBody').value,
+                        buttons: buttons,
+                        headerText: document.getElementById('buttonsHeader').value,
+                        footerText: document.getElementById('buttonsFooter').value
+                    })
+                });
+
+                const data = await response.json();
+                showResponse('buttonsResponse', data.success, 
+                    data.success ? 'Buttons sent successfully!' : `Error: ${data.error?.message || JSON.stringify(data.error)}`
+                );
+
+                if (data.success) {
+                    e.target.reset();
+                }
+            } catch (error) {
+                showResponse('buttonsResponse', false, `Error: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Send Buttons';
+            }
+        });
+    </script>
+</body>
+</html>
