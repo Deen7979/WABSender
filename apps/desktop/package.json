@@ -1,0 +1,41 @@
+{
+  "name": "whatsapp-desktop",
+  "private": true,
+  "version": "1.2.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Deen7979/WABSender.git"
+  },
+  "main": "dist/main/main/index.js",
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"tsc -p tsconfig.node.json --watch\" \"wait-on http://localhost:5173 dist/main/index.js && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
+    "dev:renderer": "vite",
+    "dev:main": "tsc -p tsconfig.node.json --watch & cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .",
+    "build:renderer": "vite build",
+    "build:main": "tsc -p tsconfig.node.json",
+    "build": "npm run build:renderer && npm run build:main",
+    "dist": "npm run build && electron-builder --publish never",
+    "dist:publish": "npm run build && electron-builder --publish always",
+    "lint": "echo TODO"
+  },
+  "dependencies": {
+    "electron-log": "^5.1.4",
+    "electron-updater": "^6.1.7",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@electron/notarize": "^2.2.1",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@types/node": "^20.12.12",
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^29.4.0",
+    "electron-builder": "^24.13.3",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.2",
+    "wait-on": "^7.2.0"
+  }
+}
