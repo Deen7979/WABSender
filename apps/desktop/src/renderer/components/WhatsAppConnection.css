@@ -1,0 +1,399 @@
+.whatsapp-connection {
+	padding: 20px;
+	max-width: 600px;
+	margin: 0 auto;
+}
+
+.connection-card {
+	background: white;
+	border-radius: 8px;
+	padding: 24px;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 24px;
+	border-bottom: 1px solid #e5e7eb;
+	padding-bottom: 16px;
+}
+
+.header h2 {
+	margin: 0;
+	font-size: 20px;
+	color: #1f2937;
+}
+
+.status-badge {
+	padding: 6px 12px;
+	border-radius: 20px;
+	font-size: 12px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.status-badge.connected {
+	background: #dcfce7;
+	color: #166534;
+}
+
+.status-badge.disconnected {
+	background: #fee2e2;
+	color: #991b1b;
+}
+
+.loading {
+	text-align: center;
+	padding: 40px 20px;
+	color: #6b7280;
+	font-size: 14px;
+}
+
+.error-message {
+	background: #fee2e2;
+	color: #991b1b;
+	padding: 12px 16px;
+	border-radius: 6px;
+	margin-bottom: 16px;
+	border-left: 4px solid #dc2626;
+}
+
+.warning-banner {
+	background: #fef3c7;
+	color: #92400e;
+	padding: 12px 16px;
+	border-radius: 6px;
+	margin: 16px 0;
+	border-left: 4px solid #f59e0b;
+	font-size: 14px;
+}
+
+.connected-info {
+	animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+	from {
+		opacity: 0;
+		transform: translateY(-10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.info-row {
+	display: flex;
+	justify-content: space-between;
+	padding: 12px 0;
+	border-bottom: 1px solid #f3f4f6;
+	align-items: center;
+}
+
+.info-row:last-of-type {
+	border-bottom: none;
+}
+
+.info-row .label {
+	font-weight: 600;
+	color: #374151;
+	font-size: 14px;
+}
+
+.info-row .value {
+	color: #6b7280;
+	font-family: "Courier New", monospace;
+	font-size: 13px;
+	word-break: break-all;
+}
+
+.token-expiry {
+	margin-top: 16px;
+	font-size: 12px;
+	color: #9ca3af;
+}
+
+.disconnected-info {
+	text-align: center;
+	padding: 20px 0;
+}
+
+.disconnected-info p {
+	color: #6b7280;
+	margin: 0 0 20px 0;
+	line-height: 1.6;
+}
+
+.actions {
+	display: flex;
+	gap: 12px;
+	margin-top: 20px;
+	justify-content: center;
+}
+
+.btn-connect,
+.btn-disconnect,
+.btn-reconnect {
+	padding: 10px 24px;
+	border: none;
+	border-radius: 6px;
+	font-size: 14px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.btn-connect {
+	background: #10b981;
+	color: white;
+}
+
+.btn-connect:hover:not(:disabled) {
+	background: #059669;
+	box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2);
+	transform: translateY(-1px);
+}
+
+.btn-disconnect {
+	background: #ef4444;
+	color: white;
+	flex: 1;
+}
+
+.btn-disconnect:hover:not(:disabled) {
+	background: #dc2626;
+	box-shadow: 0 4px 6px rgba(239, 68, 68, 0.2);
+	transform: translateY(-1px);
+}
+
+.btn-reconnect {
+	background: #3b82f6;
+	color: white;
+	flex: 1;
+}
+
+.btn-reconnect:hover:not(:disabled) {
+	background: #2563eb;
+	box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2);
+	transform: translateY(-1px);
+}
+
+button:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
+.help-section {
+	margin-top: 24px;
+	padding-top: 24px;
+	border-top: 1px solid #e5e7eb;
+}
+
+.help-section h3 {
+	margin: 0 0 12px 0;
+	font-size: 14px;
+	font-weight: 600;
+	color: #374151;
+}
+
+.help-section ul {
+	margin: 0;
+	padding-left: 20px;
+	list-style-type: disc;
+}
+
+.help-section li {
+	color: #6b7280;
+	font-size: 13px;
+	margin-bottom: 6px;
+	line-height: 1.5;
+}
+/* Webhook Health Section Styles */
+.webhook-health-section {
+	margin-top: 20px;
+	padding: 16px;
+	background: #f0fdf4;
+	border: 1px solid #bbf7d0;
+	border-radius: 6px;
+}
+
+.webhook-health-section h3 {
+	margin: 0 0 12px 0;
+	font-size: 14px;
+	font-weight: 600;
+	color: #15803d;
+}
+
+.health-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 8px 0;
+	font-size: 13px;
+}
+
+.health-item .label {
+	color: #374151;
+	font-weight: 500;
+}
+
+.health-item .status {
+	display: inline-block;
+	padding: 4px 8px;
+	border-radius: 4px;
+	font-weight: 600;
+	font-size: 12px;
+}
+
+.health-item .status.verified {
+	background: #dcfce7;
+	color: #166534;
+}
+
+.health-item .status.pending {
+	background: #fef3c7;
+	color: #92400e;
+}
+
+/* Template Sync Section Styles */
+.template-sync-section {
+	margin-top: 20px;
+	padding: 16px;
+	background: #f3f4f6;
+	border: 1px solid #d1d5db;
+	border-radius: 6px;
+}
+
+.sync-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 12px;
+}
+
+.sync-header h3 {
+	margin: 0;
+	font-size: 14px;
+	font-weight: 600;
+	color: #1f2937;
+}
+
+.sync-badge {
+	display: inline-block;
+	padding: 4px 8px;
+	border-radius: 4px;
+	font-weight: 600;
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	background: rgba(0, 0, 0, 0.05);
+}
+
+.sync-badge.success {
+	background: #dcfce7;
+	color: #166534;
+}
+
+.sync-badge.syncing {
+	background: #fef3c7;
+	color: #92400e;
+	animation: pulse 1.5s ease-in-out infinite;
+}
+
+.sync-badge.error {
+	background: #fee2e2;
+	color: #991b1b;
+}
+
+.sync-badge.pending {
+	background: #e5e7eb;
+	color: #374151;
+}
+
+@keyframes pulse {
+	0%, 100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.7;
+	}
+}
+
+.template-stats {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 12px;
+	margin-bottom: 12px;
+}
+
+.stat-item {
+	background: white;
+	padding: 8px 12px;
+	border-radius: 4px;
+	border: 1px solid #e5e7eb;
+}
+
+.stat-item .stat-label {
+	display: block;
+	font-size: 11px;
+	color: #6b7280;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	margin-bottom: 4px;
+}
+
+.stat-item .stat-value {
+	display: block;
+	font-size: 18px;
+	font-weight: 700;
+	color: #1f2937;
+}
+
+.sync-time {
+	font-size: 12px;
+	color: #6b7280;
+	margin-bottom: 12px;
+}
+
+.sync-error {
+	background: #fee2e2;
+	color: #991b1b;
+	padding: 8px 12px;
+	border-radius: 4px;
+	font-size: 12px;
+	margin-bottom: 12px;
+	border-left: 3px solid #dc2626;
+}
+
+.btn-sync {
+	width: 100%;
+	padding: 10px 16px;
+	background: #3b82f6;
+	color: white;
+	border: none;
+	border-radius: 6px;
+	font-size: 13px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.btn-sync:hover:not(:disabled) {
+	background: #2563eb;
+	box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2);
+	transform: translateY(-1px);
+}
+
+.btn-sync:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}

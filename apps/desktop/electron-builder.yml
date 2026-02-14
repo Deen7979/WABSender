@@ -1,0 +1,33 @@
+appId: com.wabsender.desktop
+productName: WAB Sender
+directories:
+  output: dist/installers
+files:
+  - dist/**
+asar: true
+publish:
+  provider: github
+  owner: Deen7979
+  repo: WABSender
+  releaseType: release
+mac:
+  target:
+    - dmg
+    - zip
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  category: public.app-category.business
+  entitlements: scripts/entitlements.mac.plist
+  entitlementsInherit: scripts/entitlements.mac.plist
+  notarize: false
+afterSign: scripts/notarize.js
+win:
+  target: nsis
+  artifactName: WABSender-Setup-${version}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true

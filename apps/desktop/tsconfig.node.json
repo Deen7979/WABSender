@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "skipLibCheck": true,
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "rootDir": "src",
+    "outDir": "dist/main",
+    "types": ["node"]
+  },
+  "include": ["electron-builder.yml", "src/main/**/*", "src/shared/**/*"]
+}

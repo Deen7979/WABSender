@@ -1,0 +1,175 @@
+.license-management {
+	padding: 20px;
+}
+
+.license-management__title {
+	margin-bottom: 16px;
+}
+
+.license-management__card {
+	background: #fff;
+	border: 1px solid #e5e5e5;
+	border-radius: 8px;
+	padding: 16px;
+}
+
+.license-management__card--spaced {
+	margin-bottom: 20px;
+}
+
+.license-management__section-title {
+	margin-top: 0;
+}
+
+.license-management__form-grid {
+	display: flex;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+
+.license-management__field {
+	flex: 1 1 200px;
+}
+
+.license-management__field--narrow {
+	flex: 1 1 120px;
+}
+
+.license-management__field--medium {
+	flex: 1 1 180px;
+}
+
+.license-management__label {
+	display: block;
+	font-weight: 600;
+	margin-bottom: 6px;
+}
+
+.license-management__input {
+	width: 100%;
+	padding: 8px;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+	box-sizing: border-box;
+}
+
+.license-management__button {
+	margin-top: 12px;
+	padding: 10px 16px;
+	background-color: #075e54;
+	color: #fff;
+	border: none;
+	border-radius: 4px;
+	cursor: pointer;
+	font-weight: 600;
+}
+
+.license-management__issued-key {
+	margin-top: 12px;
+	background: #f7f7f7;
+	padding: 10px;
+	border-radius: 4px;
+}
+
+.license-management__error {
+	background-color: #fee;
+	color: #c33;
+	padding: 10px 12px;
+	border-radius: 4px;
+	margin-bottom: 16px;
+}
+
+.license-management__list {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.license-management__item {
+	border: 1px solid #eee;
+	border-radius: 6px;
+	padding: 12px;
+}
+
+.license-management__item-header {
+	display: flex;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.license-management__item-title {
+	font-weight: 600;
+}
+
+.license-management__meta {
+	font-size: 13px;
+	color: #666;
+}
+
+.license-management__meta-small {
+	font-size: 12px;
+	color: #777;
+	margin-top: 4px;
+}
+
+.license-management__actions {
+	display: flex;
+	gap: 8px;
+}
+
+.license-management__button-secondary {
+	padding: 6px 10px;
+	border: 1px solid #ddd;
+	background: #fff;
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+.license-management__button-danger {
+	padding: 6px 10px;
+	border: 1px solid #f2b3b3;
+	background: #fff5f5;
+	border-radius: 4px;
+	cursor: pointer;
+	color: #c33;
+}
+
+.license-management__activations {
+	margin-top: 12px;
+}
+
+.license-management__activation-list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.license-management__activation-item {
+	border: 1px solid #eee;
+	border-radius: 4px;
+	padding: 8px;
+}
+
+.license-management__activation-title {
+	font-size: 13px;
+}
+
+.license-management__activation-meta {
+	font-size: 12px;
+	color: #666;
+}
+
+.license-management__activation-meta--muted {
+	font-size: 12px;
+	color: #777;
+}
+
+.license-management__button-inline {
+	margin-top: 6px;
+	padding: 4px 8px;
+	border: 1px solid #ddd;
+	background: #fff;
+	border-radius: 4px;
+	cursor: pointer;
+}

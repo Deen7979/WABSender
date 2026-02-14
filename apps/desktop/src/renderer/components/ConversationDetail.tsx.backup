@@ -1,0 +1,291 @@
+import * as React from "react";
+import "./ConversationDetail.css";
+
+type Message = {
+	id: string;
+	direction: "inbound" | "outbound";
+	body: string;
+	status: "received" | "sent" | "delivered" | "read" | "failed";
+	meta_message_id: string;
+	created_at: string;
+};
+
+type Conversation = {
+	id: string;
+	contact_id: string;
+	phone_e164: string;
+	name: string | null;
+	last_message_at: string;
+	created_at: string;
+	status: "active" | "closed" | "archived";
+};
+
+type ConversationDetailProps = {
+	conversationId: string;
+	apiClient: any;
+	wsClient: any;
+	onClose: () => void;
+};
+
+export const ConversationDetail: React.FC<ConversationDetailProps> = ({
+	conversationId,
+	apiClient,
+	wsClient,
+	onClose,
+}) => {
+	const [conversation, setConversation] = React.useState<Conversation | null>(null);
+	const [messages, setMessages] = React.useState<Message[]>([]);
+	const [loading, setLoading] = React.useState(true);
+	const [error, setError] = React.useState<string | null>(null);
+	const messagesEndRef = React.useRef(null);
+	const messagesContainerRef = React.useRef(null);
+	const [shouldAutoScroll, setShouldAutoScroll] = React.useState(true);
+
+	const loadConversation = async () => {
+		try {
+			setLoading(true);
+			setError(null);
+			const [convData, messagesData] = await Promise.all([
+				apiClient.getConversation(conversationId),
+				apiClient.getMessages(conversationId, { limit: 100 }),
+			]);
+			setConversation(convData);
+			setMessages((messagesData.messages || []).sort((a, b) =>
+				new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+			));
+		} catch (err: any) {
+			setError(err.message || "Failed to load conversation");
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	useEffect(() => {
+		loadConversation();
+
+	useEffect(() => {
+		loadConversation();
+
+		// Listen for new messages in this conversation
+		const handleMessageReceived = (payload: any) => {
+			if (payload.conversationId === conversationId) {
+				setMessages((prev) => [
+					...prev,
+					{
+						id: payload.messageId,
+						direction: "inbound",
+						body: payload.body,
+						status: "received",
+						meta_message_id: payload.messageId,
+						created_at: payload.timestamp,
+					},
+				]);
+
+				// Auto-mark as read
+				apiClient.markConversationAsRead(conversationId);
+				
+				// Set flag to auto-scroll for new messages
+				setShouldAutoScroll(true);
+			}
+		};
+
+		const handleMessageStatus = (payload: any) => {
+			// Update message status without triggering scroll
+			setMessages((prev) =>
+				prev.map((msg) =>
+					msg.id === payload.messageId ? { ...msg, status: payload.status } : msg
+				)
+			);
+		};
+
+		if (!wsClient) {
+			console.warn("WebSocket client not available");
+			return;
+		}
+
+		if (wsClient.addEventListener) {
+			wsClient.addEventListener("message:received", handleMessageReceived);
+			wsClient.addEventListener("message:status", handleMessageStatus);
+
+			return () => {
+				wsClient.removeEventListener("message:received", handleMessageReceived);
+				wsClient.removeEventListener("message:status", handleMessageStatus);
+			};
+		}
+
+		if (wsClient.on) {
+			wsClient.on("message:received", handleMessageReceived);
+			wsClient.on("message:status", handleMessageStatus);
+
+			return () => {
+				wsClient.off("message:received", handleMessageReceived);
+				wsClient.off("message:status", handleMessageStatus);
+			};
+		}
+	}, [conversationId, apiClient, wsClient]);
+
+	useEffect(() => {
+		// Auto-scroll to bottom only when shouldAutoScroll is true (new messages)
+		if (shouldAutoScroll && messagesEndRef.current) {
+			messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+			setShouldAutoScroll(false);
+		}
+	}, [messages, shouldAutoScroll]);
+
+	const handleCloseConversation = async () => {
+		try {
+			await apiClient.closeConversation(conversationId);
+			onClose();
+		} catch (err: any) {
+			alert(`Failed to close conversation: ${err.message}`);
+		}
+	};
+
+	const handleArchiveConversation = async () => {
+		try {
+			await apiClient.archiveConversation(conversationId);
+			onClose();
+		} catch (err: any) {
+			alert(`Failed to archive conversation: ${err.message}`);
+		}
+	};
+
+	const getStatusIcon = (status: string) => {
+		switch (status) {
+			case "sent":
+				return "✓";
+			case "delivered":
+				return "✓✓";
+			case "read":
+				return "🔵";
+			case "failed":
+				return "❌";
+			default:
+				return "";
+		}
+	};
+
+	// Group messages by date for display with date separators
+	const getDateGroupKey = (dateStr: string) => {
+		const date = new Date(dateStr);
+		return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+	};
+
+	const groupMessagesByDate = () => {
+		const groups: Record<string, Message[]> = {};
+		messages.forEach((msg) => {
+			const key = getDateGroupKey(msg.created_at);
+			if (!groups[key]) {
+				groups[key] = [];
+			}
+			groups[key].push(msg);
+		});
+		return Object.entries(groups).map(([date, msgs]) => ({ date, messages: msgs }));
+	};
+
+	const formatMessageTime = (dateStr: string): string => {
+		return new Date(dateStr).toLocaleTimeString([], {
+			hour: "2-digit",
+			minute: "2-digit",
+		});
+	};
+
+	const getStatusColor = (status: string): string => {
+		switch (status) {
+			case "received":
+				return "#999";
+			case "sent":
+				return "#666";
+			case "delivered":
+				return "#4CAF50";
+			case "read":
+				return "#2196F3";
+			case "failed":
+				return "#F44336";
+			default:
+				return "#999";
+		}
+	};
+
+	if (loading) {
+		return (
+			<div className="conversation-detail">
+				<div className="loading">Loading conversation...</div>
+			</div>
+		);
+	}
+
+	if (error || !conversation) {
+		return (
+			<div className="conversation-detail">
+				<div className="error">{error || "Conversation not found"}</div>
+			</div>
+		);
+	}
+
+	const groupedMessages = groupMessagesByDate();
+
+	return (
+		<div className="conversation-detail">
+			<div className="conversation-header">
+				<div className="contact-info">
+					<div className="contact-avatar">
+						{conversation.name?.[0]?.toUpperCase() || conversation.phone_e164[1]}
+					</div>
+					<div>
+						<div className="contact-name">
+							{conversation.name || conversation.phone_e164}
+						</div>
+						<div className="contact-phone">{conversation.phone_e164}</div>
+					</div>
+				</div>
+				<div className="conversation-actions">
+					<button onClick={handleCloseConversation} className="btn-secondary">
+						Close
+					</button>
+					<button onClick={handleArchiveConversation} className="btn-secondary">
+						Archive
+					</button>
+				</div>
+			</div>
+
+			<div className="messages-container">
+				{messages.length === 0 && (
+					<div className="empty-state">No messages yet</div>
+				)}
+
+				{groupedMessages.map((group) => (
+					<div key={group.date}>
+						<div className="date-separator">
+							<span className="date-label">{group.date}</span>
+						</div>
+
+						{group.messages.map((msg) => (
+							<div
+								key={msg.id}
+								className={`message ${msg.direction === "inbound" ? "inbound" : "outbound"}`}
+							>
+								<div className="message-bubble">
+									<div className="message-body">{msg.body}</div>
+									<div className="message-meta">
+										<span className="message-time">{formatMessageTime(msg.created_at)}</span>
+										{msg.direction === "outbound" && (
+											<span
+												className="message-status"
+												title={msg.status}
+												style={{ color: getStatusColor(msg.status) }}
+											>
+												{getStatusIcon(msg.status)}
+											</span>
+										)}
+									</div>
+								</div>
+							</div>
+						))}
+					</div>
+				))}
+				<div ref={messagesEndRef} />
+			</div>
+		</div>
+	);
+};

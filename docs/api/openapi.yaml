@@ -1,0 +1,891 @@
+openapi: 3.0.3
+info:
+  title: WhatsApp Desktop Backend API
+  version: 1.0.0
+  description: |
+    Cross-platform desktop application for WhatsApp messaging and automation using official Business Cloud API.
+    Phase 1: Authentication & Single Send
+    Phase 2: Campaigns & Scheduling
+    Phase 3: Inbox & Automation (Current)
+    Phase 4: Reports & Packaging
+servers:
+  - url: https://api.example.com
+security:
+  - bearerAuth: []
+paths:
+  /auth/login:
+    post:
+      summary: Login user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        "401":
+          description: Unauthorized
+
+  /auth/refresh:
+    post:
+      summary: Refresh access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
+  /contacts:
+    get:
+      summary: List contacts
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contacts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Contact'
+                  total:
+                    type: integer
+
+    post:
+      summary: Create contact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactCreate'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contact'
+
+  /contacts/import:
+    post:
+      summary: Import contacts from CSV/XLSX
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: OK
+
+  /templates:
+    get:
+      summary: List approved templates
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Template'
+
+    post:
+      summary: Create template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateCreate'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Template'
+
+  /campaigns:
+    get:
+      summary: List campaigns
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  campaigns:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Campaign'
+                  total:
+                    type: integer
+
+    post:
+      summary: Create campaign
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CampaignCreate'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+
+  /campaigns/{id}:
+    get:
+      summary: Get campaign details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Campaign'
+
+  /campaigns/{id}/schedule:
+    post:
+      summary: Schedule campaign
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CampaignSchedule'
+      responses:
+        "200":
+          description: OK
+
+  /campaigns/{id}/pause:
+    post:
+      summary: Pause campaign
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+
+  /campaigns/{id}/resume:
+    post:
+      summary: Resume campaign
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+
+  /campaigns/{id}/stats:
+    get:
+      summary: Get campaign statistics
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sent:
+                    type: integer
+                  delivered:
+                    type: integer
+                  read:
+                    type: integer
+                  failed:
+                    type: integer
+                  pending:
+                    type: integer
+
+  /messages:
+    post:
+      summary: Send message (single recipient)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageSend'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+
+  /conversations:
+    get:
+      summary: List conversations for org (Phase 3)
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ConversationDetail'
+                  total:
+                    type: integer
+
+  /conversations/{id}:
+    get:
+      summary: Get conversation details (Phase 3)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationDetail'
+
+  /conversations/{id}/messages:
+    get:
+      summary: Get conversation message history (Phase 3)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Message'
+                  total:
+                    type: integer
+
+  /conversations/{id}/reply:
+    post:
+      summary: Send reply to conversation (Phase 3)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConversationReply'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  meta_message_id:
+                    type: string
+
+  /conversations/{id}/read:
+    post:
+      summary: Mark conversation as read (Phase 3)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+
+  /conversations/{id}/close:
+    post:
+      summary: Close conversation (Phase 3)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                autoReopenOnReply:
+                  type: boolean
+      responses:
+        "200":
+          description: OK
+
+  /conversations/{id}/archive:
+    post:
+      summary: Archive conversation (Phase 3)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+
+  /automations:
+    get:
+      summary: List automation rules (Phase 3)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AutomationRule'
+
+    post:
+      summary: Create automation rule (Phase 3)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AutomationRuleCreate'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutomationRule'
+
+  /automations/{id}:
+    get:
+      summary: Get automation rule (Phase 3)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutomationRule'
+
+    put:
+      summary: Update automation rule (Phase 3)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AutomationRuleCreate'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutomationRule'
+
+    delete:
+      summary: Delete automation rule (Phase 3)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+
+  /automations/{id}/toggle:
+    post:
+      summary: Toggle automation rule active status (Phase 3)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  is_active:
+                    type: boolean
+
+  /business-hours:
+    get:
+      summary: List business hours configuration (Phase 3)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BusinessHours'
+
+    post:
+      summary: Create or update business hours entry (Phase 3)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BusinessHoursCreate'
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessHours'
+
+  /business-hours/is-open:
+    get:
+      summary: Check if currently within business hours (Phase 3)
+      parameters:
+        - name: timezone
+          in: query
+          schema: { type: string, default: "UTC" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  isOpen:
+                    type: boolean
+                  currentTime:
+                    type: string
+                  timezone:
+                    type: string
+
+  /business-hours/{dayOfWeek}:
+    put:
+      summary: Update business hours for a specific day (Phase 3)
+      parameters:
+        - name: dayOfWeek
+          in: path
+          required: true
+          description: Day of week (0=Sunday, 6=Saturday)
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BusinessHoursUpdate'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessHours'
+
+    delete:
+      summary: Delete business hours for a specific day (Phase 3)
+      parameters:
+        - name: dayOfWeek
+          in: path
+          required: true
+          description: Day of week (0=Sunday, 6=Saturday)
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+
+  /whatsapp-accounts:
+    get:
+      summary: List WhatsApp accounts
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WhatsAppAccount'
+
+    post:
+      summary: Add or update WhatsApp account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WhatsAppAccountUpsert'
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhatsAppAccount'
+
+  /opt-in:
+    post:
+      summary: Create opt-in or opt-out event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OptInEvent'
+      responses:
+        "200":
+          description: OK
+
+  /webhooks/whatsapp:
+    post:
+      summary: WhatsApp webhook (callback URL)
+      security: []
+      responses:
+        "200":
+          description: OK
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    LoginRequest:
+      type: object
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+      required: [email, password]
+
+    RefreshRequest:
+      type: object
+      properties:
+        refreshToken: { type: string }
+      required: [refreshToken]
+
+    AuthResponse:
+      type: object
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        userId: { type: string }
+        orgId: { type: string }
+
+    Contact:
+      type: object
+      properties:
+        id: { type: string }
+        phoneE164: { type: string }
+        name: { type: string }
+        email: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    ContactCreate:
+      type: object
+      properties:
+        phoneE164: { type: string }
+        name: { type: string }
+        email: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+      required: [phoneE164, name]
+
+    Template:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        language: { type: string }
+        status: { type: string }
+        components:
+          type: array
+          items: { type: object }
+
+    TemplateCreate:
+      type: object
+      properties:
+        name: { type: string }
+        language: { type: string }
+        components:
+          type: array
+          items: { type: object }
+      required: [name, language, components]
+
+    Campaign:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        templateId: { type: string }
+        recipientCount: { type: integer }
+        status: { type: string }
+        scheduledAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+
+    CampaignCreate:
+      type: object
+      properties:
+        name: { type: string }
+        templateId: { type: string }
+        recipients:
+          type: array
+          items:
+            type: object
+            properties:
+              contactId: { type: string }
+              templateParams:
+                type: object
+      required: [name, templateId, recipients]
+
+    CampaignSchedule:
+      type: object
+      properties:
+        scheduledAt: { type: string, format: date-time }
+        whatsappAccountId: { type: string }
+      required: [scheduledAt, whatsappAccountId]
+
+    Message:
+      type: object
+      properties:
+        id: { type: string }
+        conversationId: { type: string }
+        direction: { type: string, enum: [inbound, outbound] }
+        body: { type: string }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    MessageSend:
+      type: object
+      properties:
+        contactId: { type: string }
+        type: { type: string, enum: [template, text] }
+        templateId: { type: string }
+        text: { type: string }
+        variables: { type: object }
+      required: [contactId, type]
+
+    Conversation:
+      type: object
+      properties:
+        id: { type: string }
+        contactId: { type: string }
+        lastMessageAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+
+    ConversationDetail:
+      type: object
+      properties:
+        id: { type: string }
+        contactId: { type: string }
+        phoneE164: { type: string }
+        name: { type: string }
+        lastMessageAt: { type: string, format: date-time }
+        unreadCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+
+    ConversationReply:
+      type: object
+      properties:
+        type: { type: string, enum: [template, text], description: "Reply type" }
+        templateId: { type: string, description: "Required if type=template" }
+        text: { type: string, description: "Required if type=text" }
+        variables: { type: object, description: "Template variables if type=template" }
+        mediaUrl: { type: string, description: "Optional media URL for text replies" }
+
+    AutomationRule:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        trigger_type: { type: string, enum: [keyword, message_received, business_hours_check] }
+        trigger_config: { type: object }
+        action_type: { type: string, enum: [send_template, send_text, tag_contact] }
+        action_config: { type: object }
+        priority: { type: integer }
+        is_active: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    AutomationRuleCreate:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: string }
+        trigger_type: { type: string, enum: [keyword, message_received, business_hours_check] }
+        trigger_config: { type: object }
+        action_type: { type: string, enum: [send_template, send_text, tag_contact] }
+        action_config: { type: object }
+        priority: { type: integer }
+      required: [name, trigger_type, trigger_config, action_type, action_config]
+
+    BusinessHours:
+      type: object
+      properties:
+        id: { type: string }
+        timezone: { type: string }
+        day_of_week: { type: integer, description: "0=Sunday to 6=Saturday" }
+        start_time: { type: string, format: time, description: "HH:MM:SS" }
+        end_time: { type: string, format: time, description: "HH:MM:SS" }
+        created_at: { type: string, format: date-time }
+
+    BusinessHoursCreate:
+      type: object
+      properties:
+        timezone: { type: string }
+        day_of_week: { type: integer }
+        start_time: { type: string }
+        end_time: { type: string }
+      required: [timezone, day_of_week, start_time, end_time]
+
+    BusinessHoursUpdate:
+      type: object
+      properties:
+        timezone: { type: string }
+        start_time: { type: string }
+        end_time: { type: string }
+
+    WhatsAppAccount:
+      type: object
+      properties:
+        id: { type: string }
+        phoneNumberId: { type: string }
+        wabaId: { type: string }
+        displayPhoneNumber: { type: string }
+        isActive: { type: boolean }
+
+    WhatsAppAccountUpsert:
+      type: object
+      properties:
+        phoneNumberId: { type: string }
+        wabaId: { type: string }
+        displayPhoneNumber: { type: string }
+        isActive: { type: boolean }
+      required: [phoneNumberId, wabaId]
+
+    OptInEvent:
+      type: object
+      properties:
+        contactId: { type: string }
+        eventType: { type: string, enum: [opt_in, opt_out] }
+        source: { type: string }
+      required: [contactId, eventType, source]
