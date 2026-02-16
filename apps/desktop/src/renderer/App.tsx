@@ -8,7 +8,7 @@ import { AuthScreen } from './components/AuthScreen.js';
 import { ActivationScreen } from './components/ActivationScreen.js';
 import { WhatsAppConnection } from './components/WhatsAppConnection.js';
 import { TemplatesPage } from './components/TemplatesPage.js';
-import { LicenseManagement } from './components/LicenseManagement.js';
+import { SystemMonitoring } from './components/SystemMonitoring.js';
 import { PlatformDashboard } from './components/PlatformDashboard.js';
 
 declare global {
@@ -28,13 +28,6 @@ const API_BASE_URL =
 type View = 'inbox' | 'campaigns' | 'templates' | 'settings';
 type ActivationStatus = 'unknown' | 'active' | 'inactive';
 
-type ActivationInfo = {
-	activationId: string;
-	licenseId: string;
-	planCode: string;
-	expiresAt?: string | null;
-};
-
 export const App: React.FC = () => {
 	const [apiClient, setApiClient] = useState<any>(null);
 	const [wsClient, setWsClient] = useState<WebSocket | null>(null);
@@ -47,7 +40,6 @@ export const App: React.FC = () => {
 	const [orgContextName, setOrgContextName] = useState<string | null>(null);
 	const [deviceId, setDeviceId] = useState<string | null>(null);
 	const [activationStatus, setActivationStatus] = useState<ActivationStatus>('unknown');
-	const [activationInfo, setActivationInfo] = useState<ActivationInfo | null>(null);
 
 	const clearAuthState = () => {
 		localStorage.removeItem('accessToken');
@@ -104,7 +96,7 @@ export const App: React.FC = () => {
 		const storedActivation = localStorage.getItem('licenseActivation');
 		if (storedActivation) {
 			try {
-				setActivationInfo(JSON.parse(storedActivation));
+				// setActivationInfo(JSON.parse(storedActivation));
 			} catch {
 				localStorage.removeItem('licenseActivation');
 			}
@@ -270,7 +262,7 @@ export const App: React.FC = () => {
 						planCode: result.planCode,
 						expiresAt: result.expiresAt
 					};
-					setActivationInfo(info);
+					// setActivationInfo(info);
 					localStorage.setItem('licenseActivation', JSON.stringify(info));
 					setActivationStatus('active');
 				} else {
@@ -366,7 +358,7 @@ export const App: React.FC = () => {
 				deviceId={deviceId}
 				apiClient={apiClient}
 				onActivated={(info) => {
-					setActivationInfo(info);
+					// setActivationInfo(info);
 					localStorage.setItem('licenseActivation', JSON.stringify(info));
 					setActivationStatus('active');
 				}}
@@ -514,6 +506,8 @@ export const App: React.FC = () => {
 						</div>
 						<WhatsAppConnection apiClient={apiClient} orgId={orgId} />
 						{role === 'admin' && <LicenseManagement apiClient={apiClient} />}
+						{role === 'admin' && <UserManagement apiClient={apiClient} />}
+						{role === 'admin' && <SystemMonitoring apiClient={apiClient} />}
 					</div>
 				)}
 			</div>

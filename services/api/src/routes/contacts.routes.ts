@@ -5,7 +5,7 @@ import path from "path";
 import { Readable } from "stream";
 import { requireAuth } from "../middleware/auth.js";
 import { db } from "../db/index.js";
-import { auditLog, AuditAction, ResourceType } from "../middleware/auditLog.js";
+import { auditMiddleware, auditLog, AuditAction, ResourceType } from "../middleware/auditLog.js";
 
 export const contactsRouter = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -75,7 +75,7 @@ contactsRouter.get("/", requireAuth, async (req, res) => {
 	return res.json(result.rows);
 });
 
-contactsRouter.post("/", requireAuth, async (req, res) => {
+contactsRouter.post("/", requireAuth, auditMiddleware(AuditAction.CONTACT_CREATED, ResourceType.CONTACT), async (req, res) => {
 	const orgId = req.auth!.orgId;
 	const { phoneE164, name, customFields } = req.body as {
 		phoneE164?: string;
@@ -94,10 +94,6 @@ contactsRouter.post("/", requireAuth, async (req, res) => {
 	);
 
 	const contactId = result.rows[0].id;
-	await auditLog(req, AuditAction.CONTACT_CREATED, ResourceType.CONTACT, contactId, {
-		phoneE164: normalized,
-		name,
-	});
 
 	return res.json(result.rows[0]);
 });

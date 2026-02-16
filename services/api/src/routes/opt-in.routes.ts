@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import { db } from "../db/index.js";
+import { auditMiddleware, AuditAction, ResourceType } from "../middleware/auditLog.js";
 
 export const optInRouter = Router();
 
-optInRouter.post("/", requireAuth, async (req, res) => {
+optInRouter.post("/", requireAuth, auditMiddleware(AuditAction.OPT_IN_RECORDED, ResourceType.OPT_IN), async (req, res) => {
   const orgId = req.auth!.orgId;
   const { contactId, eventType, source } = req.body as {
     contactId?: string;

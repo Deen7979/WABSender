@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './AuditLogViewer.css';
 
 // We'll need to get API_URL from environment or config
-const API_URL = 'http://localhost:3000';
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 
 interface AuditLog {
   id: string;

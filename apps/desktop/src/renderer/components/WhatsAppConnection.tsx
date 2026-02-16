@@ -33,7 +33,7 @@ interface WebhookHealth {
 
 interface WhatsAppConnectionProps {
 	apiClient?: any;
-	orgId?: string;
+	orgId?: string | null;
 }
 
 export const WhatsAppConnection: React.FC<WhatsAppConnectionProps> = ({ apiClient, orgId }) => {

@@ -3,6 +3,7 @@ import { requireAuth } from "../middleware/auth.js";
 import { db } from "../db/index.js";
 import { syncTemplatesForOrg, getApprovedTemplates, manualSyncTemplates } from "../services/templateSync.js";
 import { logger } from "../utils/logger.js";
+import { auditMiddleware, AuditAction, ResourceType } from "../middleware/auditLog.js";
 
 export const templatesRouter = Router();
 
@@ -27,7 +28,7 @@ templatesRouter.get("/", requireAuth, async (req, res) => {
  * Manually trigger template synchronization from Meta
  * Idempotent - can be called multiple times safely
  */
-templatesRouter.post("/sync", requireAuth, async (req, res) => {
+templatesRouter.post("/sync", requireAuth, auditMiddleware(AuditAction.TEMPLATE_SYNCED, ResourceType.TEMPLATE), async (req, res) => {
 	try {
 		const orgId = req.auth!.orgId;
 		const result = await manualSyncTemplates(orgId);

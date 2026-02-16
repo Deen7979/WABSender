@@ -49,9 +49,13 @@ export enum AuditAction {
   // Exports
   EXPORT_GENERATED = 'export.generated',
   
-  // WhatsApp Accounts
-  WHATSAPP_ACCOUNT_ADDED = 'whatsapp_account.added',
-  WHATSAPP_ACCOUNT_REMOVED = 'whatsapp_account.removed',
+  // Users
+  USER_CREATED = 'user.created',
+  USER_UPDATED = 'user.updated',
+  USER_DELETED = 'user.deleted',
+  
+  // Organizations
+  ORG_CREATED = 'org.created',
 }
 
 /**
@@ -67,6 +71,8 @@ export enum ResourceType {
   OPT_IN = 'opt_in',
   WHATSAPP_ACCOUNT = 'whatsapp_account',
   EXPORT = 'export',
+  USER = 'user',
+  ORG = 'org',
 }
 
 /**
@@ -163,8 +169,8 @@ export function auditMiddleware(
     res.json = function (body: any) {
       // Only log on successful responses (2xx status codes)
       if (res.statusCode >= 200 && res.statusCode < 300) {
-        const orgId = (req as any).orgId;
-        const userId = (req as any).userId;
+        const orgId = (req as any).auth?.orgId;
+        const userId = (req as any).auth?.userId;
 
         if (orgId) {
           // Extract resource ID from response or options
@@ -216,8 +222,8 @@ export async function auditLog(
   resourceId?: string,
   metadata?: Record<string, any>
 ): Promise<void> {
-  const orgId = (req as any).orgId;
-  const userId = (req as any).userId;
+  const orgId = (req as any).auth?.orgId;
+  const userId = (req as any).auth?.userId;
 
   if (!orgId) {
     logger.warn('[Audit] No orgId in request, skipping audit log');

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import { db } from "../db/index.js";
+import { auditMiddleware, AuditAction, ResourceType } from "../middleware/auditLog.js";
 
 export const businessHoursRouter = Router();
 
@@ -68,7 +69,7 @@ businessHoursRouter.get("/is-open", requireAuth, async (req, res) => {
 });
 
 // POST /business-hours - Create business hours entry
-businessHoursRouter.post("/", requireAuth, async (req, res) => {
+businessHoursRouter.post("/", requireAuth, auditMiddleware(AuditAction.BUSINESS_HOURS_UPDATED, ResourceType.BUSINESS_HOURS), async (req, res) => {
 	const orgId = req.auth!.orgId;
 	const { timezone, day_of_week, start_time, end_time } = req.body as {
 		timezone: string;

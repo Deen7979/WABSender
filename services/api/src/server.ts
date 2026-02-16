@@ -23,6 +23,7 @@ import { licenseRouter } from "./routes/license.routes.js";
 import { orgsRouter } from "./routes/orgs.routes.js";
 import { platformRouter } from "./routes/platform.routes.js";
 import { platformLicenseRouter } from "./routes/platform-license.routes.js";
+import usersRouter from "./routes/users.routes.js";
 import { startScheduler, stopScheduler } from "./jobs/campaignScheduler.js";
 import { startQueueWorker, stopQueueWorker } from "./jobs/queueWorker.js";
 import { maybeBootstrapAdmin } from "./services/bootstrapAdmin.js";
@@ -49,6 +50,7 @@ export const createServer = () => {
 	app.use("/audit-logs", auditLogsRouter);
 	app.use("/license", licenseRouter);
 	app.use("/orgs", orgsRouter);
+	app.use("/users", usersRouter);
 	app.use("/api/platform", platformRouter);
 	app.use("/api/platform", platformLicenseRouter);
 	app.use("/webhooks", webhooksRouter);

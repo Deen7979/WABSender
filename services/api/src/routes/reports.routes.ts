@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { db } from '../db/index.js';
 import { generateCSV, formatDate, formatPercentage, formatDuration, CSVColumn } from '../utils/csvExporter.js';
+import { auditMiddleware, AuditAction, ResourceType } from '../middleware/auditLog.js';
 
 const router = Router();
 
@@ -397,7 +398,7 @@ router.get('/inbox/agents', async (req, res) => {
  * Export campaign reports to CSV
  * Body: { status?, startDate?, endDate?, templateId? }
  */
-router.post('/campaigns/export', async (req, res) => {
+router.post('/campaigns/export', auditMiddleware(AuditAction.EXPORT_GENERATED, ResourceType.EXPORT), async (req, res) => {
   try {
     const orgId = (req as any).orgId;
     const { status, startDate, endDate, templateId } = req.body;
@@ -502,11 +503,319 @@ router.post('/campaigns/export', async (req, res) => {
 });
 
 /**
+ * GET /reports/inbox
+ * Returns comprehensive inbox analytics report
+ * Query params: startDate, endDate
+ */
+router.get('/inbox', async (req, res) => {
+  try {
+    const orgId = (req as any).orgId;
+    const { startDate, endDate } = req.query;
+
+    const start = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const end = endDate || new Date().toISOString();
+
+    // Get summary stats
+    const summaryResult = await db.query(
+      `SELECT 
+        COUNT(DISTINCT c.id) AS total_conversations,
+        COUNT(DISTINCT CASE WHEN c.last_message_at >= NOW() - INTERVAL '24 hours' THEN c.id END) AS active_conversations,
+        COUNT(DISTINCT CASE WHEN m.direction = 'inbound' THEN m.id END) AS messages_received,
+        COUNT(DISTINCT CASE WHEN m.direction = 'outbound' AND m.created_at > c.created_at THEN m.id END) AS messages_sent
+      FROM conversations c
+      LEFT JOIN messages m ON c.id = m.conversation_id AND m.created_at BETWEEN $2 AND $3
+      WHERE c.org_id = $1`,
+      [orgId, start, end]
+    );
+
+    const summary = summaryResult.rows[0];
+
+    // Get average response time
+    const responseTimeResult = await db.query(
+      `SELECT AVG(response_seconds) AS avg_response_seconds
+       FROM (
+         SELECT 
+           EXTRACT(EPOCH FROM (
+             (SELECT MIN(m2.created_at) 
+              FROM messages m2 
+              WHERE m2.conversation_id = m1.conversation_id 
+                AND m2.direction = 'outbound' 
+                AND m2.created_at > m1.created_at
+                AND m2.meta_message_id NOT LIKE 'auto-%')
+             - m1.created_at
+           )) AS response_seconds
+         FROM messages m1
+         WHERE m1.org_id = $1
+           AND m1.direction = 'inbound'
+           AND m1.created_at BETWEEN $2 AND $3
+       ) responses
+       WHERE response_seconds IS NOT NULL`,
+      [orgId, start, end]
+    );
+
+    const avgResponseSeconds = parseFloat(responseTimeResult.rows[0]?.avg_response_seconds) || 0;
+
+    // Get agent stats (per user)
+    const agentsResult = await db.query(
+      `SELECT 
+        u.id AS user_id,
+        u.email AS user_email,
+        COUNT(DISTINCT CASE WHEN m.direction = 'outbound' AND m.meta_message_id NOT LIKE 'auto-%' THEN m.id END) AS messages_sent,
+        COUNT(DISTINCT CASE WHEN m.direction = 'outbound' AND m.meta_message_id NOT LIKE 'auto-%' THEN m.conversation_id END) AS conversations_handled,
+        AVG(
+          CASE 
+            WHEN m.direction = 'outbound' AND m.meta_message_id NOT LIKE 'auto-%'
+            THEN (
+              SELECT EXTRACT(EPOCH FROM (m.created_at - m_prev.created_at))
+              FROM messages m_prev
+              WHERE m_prev.conversation_id = m.conversation_id
+                AND m_prev.direction = 'inbound'
+                AND m_prev.created_at < m.created_at
+              ORDER BY m_prev.created_at DESC
+              LIMIT 1
+            )
+            ELSE NULL
+          END
+        ) AS avg_response_seconds
+      FROM users u
+      LEFT JOIN messages m ON u.id = m.user_id AND m.created_at BETWEEN $2 AND $3
+      WHERE u.org_id = $1
+      GROUP BY u.id, u.email
+      ORDER BY messages_sent DESC`,
+      [orgId, start, end]
+    );
+
+    const agentStats = agentsResult.rows.map((row: Record<string, any>) => ({
+      userId: row.user_id,
+      userEmail: row.user_email,
+      messagesSent: parseInt(row.messages_sent) || 0,
+      conversationsHandled: parseInt(row.conversations_handled) || 0,
+      averageResponseTime: Math.round(parseFloat(row.avg_response_seconds) || 0)
+    }));
+
+    // Get conversations by status
+    const statusResult = await db.query(
+      `SELECT 
+        COALESCE(c.status, 'unknown') AS status,
+        COUNT(*) AS count
+      FROM conversations c
+      WHERE c.org_id = $1
+      GROUP BY c.status
+      ORDER BY count DESC`,
+      [orgId]
+    );
+
+    const conversationsByStatus = statusResult.rows.map((row: Record<string, any>) => ({
+      status: row.status,
+      count: parseInt(row.count)
+    }));
+
+    // Get message volume by date
+    const volumeResult = await db.query(
+      `SELECT 
+        DATE(m.created_at) AS date,
+        COUNT(CASE WHEN m.direction = 'outbound' THEN 1 END) AS sent,
+        COUNT(CASE WHEN m.direction = 'inbound' THEN 1 END) AS received
+      FROM messages m
+      WHERE m.org_id = $1 AND m.created_at BETWEEN $2 AND $3
+      GROUP BY DATE(m.created_at)
+      ORDER BY date ASC`,
+      [orgId, start, end]
+    );
+
+    const messageVolume = volumeResult.rows.map((row: Record<string, any>) => ({
+      date: row.date.toISOString().split('T')[0],
+      sent: parseInt(row.sent),
+      received: parseInt(row.received)
+    }));
+
+    res.json({
+      stats: {
+        totalConversations: parseInt(summary.total_conversations) || 0,
+        activeConversations: parseInt(summary.active_conversations) || 0,
+        messagesSent: parseInt(summary.messages_sent) || 0,
+        messagesReceived: parseInt(summary.messages_received) || 0,
+        averageResponseTime: Math.round(avgResponseSeconds)
+      },
+      agentStats,
+      conversationsByStatus,
+      messageVolume
+    });
+
+  } catch (error: any) {
+    console.error('[Reports] Error fetching inbox report:', error);
+    res.status(500).json({ error: 'Failed to generate inbox report' });
+  }
+});
+
+/**
+ * GET /reports/realtime
+ * Returns realtime operational metrics
+ */
+router.get('/realtime', async (req, res) => {
+  try {
+    const orgId = (req as any).orgId;
+
+    // Get current active conversations
+    const activeConversationsResult = await db.query(
+      `SELECT COUNT(*) AS active_conversations
+       FROM conversations c
+       WHERE c.org_id = $1
+         AND c.last_message_at >= NOW() - INTERVAL '24 hours'`,
+      [orgId]
+    );
+
+    // Get pending messages in queue
+    const pendingMessagesResult = await db.query(
+      `SELECT COUNT(*) AS pending_messages
+       FROM messages m
+       WHERE m.org_id = $1
+         AND m.status = 'pending'`,
+      [orgId]
+    );
+
+    // Get active campaigns
+    const activeCampaignsResult = await db.query(
+      `SELECT COUNT(*) AS active_campaigns
+       FROM campaigns c
+       WHERE c.org_id = $1
+         AND c.status IN ('scheduled', 'running')`,
+      [orgId]
+    );
+
+    // Get system health (webhook status)
+    const webhookHealthResult = await db.query(
+      `SELECT 
+        COUNT(*) AS total_webhooks,
+        COUNT(CASE WHEN verified_at IS NOT NULL THEN 1 END) AS verified_webhooks,
+        COUNT(CASE WHEN last_error_at >= NOW() - INTERVAL '1 hour' THEN 1 END) AS failing_webhooks
+       FROM webhook_health
+       WHERE org_id = $1`,
+      [orgId]
+    );
+
+    // Get recent message throughput (last hour)
+    const throughputResult = await db.query(
+      `SELECT 
+        COUNT(*) AS messages_last_hour,
+        COUNT(CASE WHEN status = 'delivered' THEN 1 END) AS delivered_last_hour,
+        COUNT(CASE WHEN status = 'failed' THEN 1 END) AS failed_last_hour
+       FROM messages m
+       WHERE m.org_id = $1
+         AND m.created_at >= NOW() - INTERVAL '1 hour'`,
+      [orgId]
+    );
+
+    const realtime = {
+      activeConversations: parseInt(activeConversationsResult.rows[0]?.active_conversations) || 0,
+      pendingMessages: parseInt(pendingMessagesResult.rows[0]?.pending_messages) || 0,
+      activeCampaigns: parseInt(activeCampaignsResult.rows[0]?.active_campaigns) || 0,
+      webhookHealth: {
+        total: parseInt(webhookHealthResult.rows[0]?.total_webhooks) || 0,
+        verified: parseInt(webhookHealthResult.rows[0]?.verified_webhooks) || 0,
+        failing: parseInt(webhookHealthResult.rows[0]?.failing_webhooks) || 0
+      },
+      throughput: {
+        messagesLastHour: parseInt(throughputResult.rows[0]?.messages_last_hour) || 0,
+        deliveredLastHour: parseInt(throughputResult.rows[0]?.delivered_last_hour) || 0,
+        failedLastHour: parseInt(throughputResult.rows[0]?.failed_last_hour) || 0
+      },
+      timestamp: new Date().toISOString()
+    };
+
+    res.json(realtime);
+  } catch (error: any) {
+    console.error('[Reports] Error fetching realtime metrics:', error);
+    res.status(500).json({ error: 'Failed to generate realtime metrics' });
+  }
+});
+
+/**
+ * GET /reports/status
+ * Returns system status and health metrics
+ */
+router.get('/status', async (req, res) => {
+  try {
+    const orgId = (req as any).orgId;
+
+    // Queue status
+    const queueStatusResult = await db.query(
+      `SELECT 
+        COUNT(*) AS total_jobs,
+        COUNT(CASE WHEN status = 'pending' THEN 1 END) AS pending_jobs,
+        COUNT(CASE WHEN status = 'processing' THEN 1 END) AS processing_jobs,
+        COUNT(CASE WHEN status = 'completed' THEN 1 END) AS completed_jobs,
+        COUNT(CASE WHEN status = 'failed' THEN 1 END) AS failed_jobs,
+        MAX(updated_at) AS last_job_at
+       FROM job_queue
+       WHERE org_id = $1`,
+      [orgId]
+    );
+
+    // Webhook health
+    const webhookHealthResult = await db.query(
+      `SELECT 
+        COUNT(*) AS total_webhooks,
+        COUNT(CASE WHEN verified_at IS NOT NULL THEN 1 END) AS verified_webhooks,
+        COUNT(CASE WHEN last_success_at >= NOW() - INTERVAL '1 hour' THEN 1 END) AS healthy_webhooks,
+        COUNT(CASE WHEN last_error_at >= NOW() - INTERVAL '1 hour' THEN 1 END) AS failing_webhooks,
+        MAX(last_success_at) AS last_success_at,
+        MAX(last_error_at) AS last_error_at
+       FROM webhook_health
+       WHERE org_id = $1`,
+      [orgId]
+    );
+
+    // Database connection health
+    const dbHealthResult = await db.query('SELECT NOW() AS db_time, version() AS db_version');
+
+    // System metrics
+    const systemMetrics = {
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      nodeVersion: process.version,
+      platform: process.platform
+    };
+
+    const status = {
+      queue: {
+        totalJobs: parseInt(queueStatusResult.rows[0]?.total_jobs) || 0,
+        pendingJobs: parseInt(queueStatusResult.rows[0]?.pending_jobs) || 0,
+        processingJobs: parseInt(queueStatusResult.rows[0]?.processing_jobs) || 0,
+        completedJobs: parseInt(queueStatusResult.rows[0]?.completed_jobs) || 0,
+        failedJobs: parseInt(queueStatusResult.rows[0]?.failed_jobs) || 0,
+        lastJobAt: queueStatusResult.rows[0]?.last_job_at
+      },
+      webhooks: {
+        total: parseInt(webhookHealthResult.rows[0]?.total_webhooks) || 0,
+        verified: parseInt(webhookHealthResult.rows[0]?.verified_webhooks) || 0,
+        healthy: parseInt(webhookHealthResult.rows[0]?.healthy_webhooks) || 0,
+        failing: parseInt(webhookHealthResult.rows[0]?.failing_webhooks) || 0,
+        lastSuccessAt: webhookHealthResult.rows[0]?.last_success_at,
+        lastErrorAt: webhookHealthResult.rows[0]?.last_error_at
+      },
+      database: {
+        connected: true,
+        dbTime: dbHealthResult.rows[0]?.db_time,
+        dbVersion: dbHealthResult.rows[0]?.db_version
+      },
+      system: systemMetrics,
+      timestamp: new Date().toISOString()
+    };
+
+    res.json(status);
+  } catch (error: any) {
+    console.error('[Reports] Error fetching system status:', error);
+    res.status(500).json({ error: 'Failed to generate system status' });
+  }
+});
+
+/**
  * POST /reports/inbox/export
  * Export inbox conversations to CSV
  * Body: { startDate?, endDate? }
  */
-router.post('/inbox/export', async (req, res) => {
+router.post('/inbox/export', auditMiddleware(AuditAction.EXPORT_GENERATED, ResourceType.EXPORT), async (req, res) => {
   try {
     const orgId = (req as any).orgId;
     const { startDate, endDate } = req.body;

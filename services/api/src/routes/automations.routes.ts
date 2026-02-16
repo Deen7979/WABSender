@@ -2,6 +2,7 @@ import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import { db } from "../db/index.js";
 import { broadcastToOrg } from "../websocket/hub.js";
+import { auditMiddleware, AuditAction, ResourceType } from "../middleware/auditLog.js";
 
 export const automationsRouter = Router();
 
@@ -50,7 +51,7 @@ automationsRouter.get("/:id", requireAuth, async (req, res) => {
 });
 
 // POST /automations - Create new automation rule
-automationsRouter.post("/", requireAuth, async (req, res) => {
+automationsRouter.post("/", requireAuth, auditMiddleware(AuditAction.AUTOMATION_CREATED, ResourceType.AUTOMATION), async (req, res) => {
 	const orgId = req.auth!.orgId;
 	const {
 		name,

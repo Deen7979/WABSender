@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { requireAuth } from '../middleware/auth.js';
 import { db } from '../db/index.js';
 import { generateCSV, formatDate, CSVColumn } from '../utils/csvExporter.js';
 
@@ -9,9 +10,9 @@ const router = Router();
  * Query audit logs with filtering, pagination, and sorting
  * Query params: startDate, endDate, userId, action, resourceType, page, limit
  */
-router.get('/', async (req, res) => {
+router.get('/', requireAuth, async (req, res) => {
   try {
-    const orgId = (req as any).orgId;
+    const orgId = (req as any).auth?.orgId;
     const {
       startDate,
       endDate,
@@ -27,7 +28,7 @@ router.get('/', async (req, res) => {
     const offset = (pageNum - 1) * limitNum;
 
     // Build WHERE clause
-    const conditions = ['org_id = $1'];
+    const conditions = ['al.org_id = $1'];
     const params: any[] = [orgId];
     let paramIndex = 2;
 
@@ -66,7 +67,7 @@ router.get('/', async (req, res) => {
     // Get total count
     const countResult = await db.query(
       `SELECT COUNT(*) AS total
-       FROM audit_logs
+       FROM audit_logs al
        WHERE ${whereClause}`,
       params
     );
@@ -129,9 +130,9 @@ router.get('/', async (req, res) => {
  * Export audit logs to CSV
  * Body: { startDate?, endDate?, userId?, action?, resourceType? }
  */
-router.post('/export', async (req, res) => {
+router.post('/export', requireAuth, async (req, res) => {
   try {
-    const orgId = (req as any).orgId;
+    const orgId = (req as any).auth?.orgId;
     const { startDate, endDate, userId, action, resourceType } = req.body;
 
     // Build WHERE clause

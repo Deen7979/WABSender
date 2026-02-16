@@ -53,6 +53,11 @@ export const PlatformDashboard: React.FC<PlatformDashboardProps> = ({ apiClient,
 	});
 	const [issuedLicenseKey, setIssuedLicenseKey] = useState<string | null>(null);
 	const [issuing, setIssuing] = useState(false);
+	const [showCreateOrgForm, setShowCreateOrgForm] = useState(false);
+	const [createOrgFormData, setCreateOrgFormData] = useState({
+		name: ''
+	});
+	const [creatingOrg, setCreatingOrg] = useState(false);
 
 	useEffect(() => {
 		const loadPlatformData = async () => {
@@ -113,6 +118,27 @@ export const PlatformDashboard: React.FC<PlatformDashboardProps> = ({ apiClient,
 		}
 	};
 
+	const handleCreateOrg = async (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!apiClient || !createOrgFormData.name.trim()) return;
+
+		setCreatingOrg(true);
+		setError(null);
+		try {
+			await apiClient.post('/orgs', { name: createOrgFormData.name.trim() });
+			setShowCreateOrgForm(false);
+			setCreateOrgFormData({ name: '' });
+
+			// Refresh orgs
+			const orgsRes = await apiClient.listPlatformOrgs();
+			setOrgs(orgsRes.orgs || []);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : 'Failed to create organization');
+		} finally {
+			setCreatingOrg(false);
+		}
+	};
+
 	return (
 		<div className="platform-dashboard">
 			<h2 className="platform-dashboard__title">Platform Dashboard</h2>
@@ -121,7 +147,16 @@ export const PlatformDashboard: React.FC<PlatformDashboardProps> = ({ apiClient,
 			<div className="platform-dashboard__card">
 				<div className="platform-dashboard__card-header">
 					<h3>Organizations</h3>
-					{loading && <span className="platform-dashboard__muted">Loading...</span>}
+					<div>
+						<button
+							className="platform-dashboard__button platform-dashboard__button--primary"
+							onClick={() => setShowCreateOrgForm(true)}
+							disabled={loading}
+						>
+							Create Organization
+						</button>
+						{loading && <span className="platform-dashboard__muted">Loading...</span>}
+					</div>
 				</div>
 				{orgs.length === 0 ? (
 					<div className="platform-dashboard__empty">No organizations found.</div>
@@ -195,6 +230,44 @@ export const PlatformDashboard: React.FC<PlatformDashboardProps> = ({ apiClient,
 					)}
 				</div>
 			</div>
+
+			{/* Create Organization Form Modal */}
+			{showCreateOrgForm && (
+				<div className="platform-dashboard__modal-overlay" onClick={() => setShowCreateOrgForm(false)}>
+					<div className="platform-dashboard__modal" onClick={(e) => e.stopPropagation()}>
+						<h3>Create New Organization</h3>
+						<form onSubmit={handleCreateOrg}>
+							<div className="platform-dashboard__form-group">
+								<label htmlFor="orgName">Organization Name *</label>
+								<input
+									id="orgName"
+									type="text"
+									value={createOrgFormData.name}
+									onChange={(e) => setCreateOrgFormData({ name: e.target.value })}
+									required
+									placeholder="Enter organization name"
+								/>
+							</div>
+							<div className="platform-dashboard__modal-actions">
+								<button
+									type="button"
+									className="platform-dashboard__button"
+									onClick={() => setShowCreateOrgForm(false)}
+								>
+									Cancel
+								</button>
+								<button
+									type="submit"
+									className="platform-dashboard__button platform-dashboard__button--primary"
+									disabled={creatingOrg}
+								>
+									{creatingOrg ? 'Creating...' : 'Create Organization'}
+								</button>
+							</div>
+						</form>
+					</div>
+				</div>
+			)}
 
 			{/* Issue License Form Modal */}
 			{showIssueForm && (
