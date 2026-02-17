@@ -8,6 +8,17 @@ type Template = {
 	components?: Array<{ type: string; text?: string }>;
 };
 
+const getExpectedBodyParamCount = (components?: Array<{ type: string; text?: string }>) => {
+	if (!components) return 0;
+	const body = components.find((c) => c.type === "BODY");
+	if (!body?.text) return 0;
+	const matches = [...body.text.matchAll(/{{\s*(\d+)\s*}}/g)];
+	if (matches.length === 0) return 0;
+	return matches.reduce((max, match) => Math.max(max, Number(match[1])), 0);
+};
+
+const buildEmptyVariables = (count: number) => Array.from({ length: count }, () => "");
+
 type MessageInputProps = {
 	conversationId: string;
 	contactId?: string;
@@ -30,20 +41,26 @@ export const MessageInput: React.FC<MessageInputProps> = React.memo(({
 	const [mode, setMode] = useState<"text" | "template">("text");
 	const [text, setText] = useState("");
 	const [selectedTemplateId, setSelectedTemplateId] = useState("");
-	const [templateVariablesRaw, setTemplateVariablesRaw] = useState("");
+	const [templateVariableValues, setTemplateVariableValues] = useState<string[]>([]);
 	const [sending, setSending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [success, setSuccess] = useState(false);
-
-	// Determine if send button should be enabled
-	const canSend = mode === "text" 
-		? text.trim().length > 0 && !sending && !!contactId
-		: selectedTemplateId && !sending && !!contactId;
 
 	const approvedTemplates = templates.filter(
 		(t) => !t.status || t.status === "APPROVED"
 	);
 	const selectedTemplate = approvedTemplates.find((t) => t.id === selectedTemplateId);
+	const expectedTemplateParams = getExpectedBodyParamCount(selectedTemplate?.components);
+	const providedTemplateParams = templateVariableValues.filter((value) => value.trim().length > 0).length;
+	const hasAllRequiredVariables =
+		expectedTemplateParams === 0 ||
+		(templateVariableValues.length === expectedTemplateParams &&
+			templateVariableValues.every((value) => value.trim().length > 0));
+
+	// Determine if send button should be enabled
+	const canSend = mode === "text" 
+		? text.trim().length > 0 && !sending && !!contactId
+		: selectedTemplateId && !sending && !!contactId && hasAllRequiredVariables;
 
 	const handleSendText = async () => {
 		if (!text.trim()) {
@@ -89,23 +106,24 @@ export const MessageInput: React.FC<MessageInputProps> = React.memo(({
 			setSending(true);
 			setError(null);
 
-			const values = templateVariablesRaw
-				.split(",")
-				.map((v) => v.trim())
-				.filter((v) => v.length > 0);
-
-			const variables = values.reduce<Record<string, string>>((acc, value, index) => {
+			const sanitizedValues = templateVariableValues.map((value) => value.trim());
+			const variables = sanitizedValues.reduce<Record<string, string>>((acc, value, index) => {
 				acc[String(index + 1)] = value;
 				return acc;
 			}, {});
 
+			if (expectedTemplateParams > 0 && !hasAllRequiredVariables) {
+				setError(`Template requires ${expectedTemplateParams} variables, but ${providedTemplateParams} were provided.`);
+				return;
+			}
+
 			await apiClient.sendMessage({
 				contactId,
 				templateId: selectedTemplateId,
-				variables,
+				variables: expectedTemplateParams > 0 ? variables : undefined,
 			});
 			setSelectedTemplateId("");
-			setTemplateVariablesRaw("");
+			setTemplateVariableValues([]);
 			setSuccess(true);
 			setTimeout(() => setSuccess(false), 2000);
 			onMessageSent?.();
@@ -184,8 +202,11 @@ export const MessageInput: React.FC<MessageInputProps> = React.memo(({
 							<select
 								value={selectedTemplateId}
 								onChange={(e) => {
-									setSelectedTemplateId(e.target.value);
-									setTemplateVariablesRaw("");
+									const nextTemplateId = e.target.value;
+									const nextTemplate = approvedTemplates.find((tpl) => tpl.id === nextTemplateId);
+									const nextCount = getExpectedBodyParamCount(nextTemplate?.components);
+									setSelectedTemplateId(nextTemplateId);
+									setTemplateVariableValues(buildEmptyVariables(nextCount));
 									setError(null); // Clear any previous errors
 								}}
 								disabled={sending}
@@ -201,17 +222,33 @@ export const MessageInput: React.FC<MessageInputProps> = React.memo(({
 
 							{selectedTemplateId && (
 								<div className="template-variables">
-									<label>Variables (comma-separated):</label>
-									<input
-										type="text"
-										placeholder="value1, value2"
-										value={templateVariablesRaw}
-										onChange={(e) => setTemplateVariablesRaw(e.target.value)}
-										disabled={sending}
-									/>
+									<label>Template Variables:</label>
+									{expectedTemplateParams === 0 ? (
+										<p className="template-hint">This template does not require variables.</p>
+									) : (
+										templateVariableValues.map((value, index) => (
+											<input
+												key={index}
+												type="text"
+												placeholder={`Variable ${index + 1}`}
+												value={value}
+												onChange={(e) => {
+													setTemplateVariableValues((prev) => {
+														const next = [...prev];
+														next[index] = e.target.value;
+														return next;
+													});
+												}}
+												disabled={sending}
+											/>
+										))
+									)}
 									{selectedTemplate && (
 										<p className="template-hint">
 											Using template: {selectedTemplate.name}
+											{expectedTemplateParams > 0
+												? ` (requires ${expectedTemplateParams} variables, ${providedTemplateParams} filled)`
+												: ""}
 										</p>
 									)}
 								</div>

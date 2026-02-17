@@ -1,6 +1,7 @@
 import { db } from "../db/index.js";
 import { logger } from "../utils/logger.js";
 import { whatsappPost } from "./whatsapp/client.js";
+import { broadcastToOrg } from "../websocket/hub.js";
 
 /**
  * Phase 4.7: Outbound Messaging Service
@@ -34,6 +35,7 @@ interface SendMessageParams {
 	templateId?: string; // Template ID if using template
 	messageBody?: string; // Free text if not using template
 	templateParams?: Record<string, string>; // Parameters for template variables
+	retentionPolicy?: string; // Retention policy for the message
 }
 
 interface SendMessageResult {
@@ -47,6 +49,7 @@ type TemplateMeta = {
 	name: string;
 	language: string;
 	status: string;
+	components?: Array<{ type: string; text?: string }>;
 };
 
 const MAX_RETRIES = 3;
@@ -121,7 +124,7 @@ async function validateTemplate(
 ): Promise<{ valid: boolean; template?: TemplateMeta; error?: string }> {
 	try {
 		const result = await db.query(
-			`SELECT id, name, language, status
+			`SELECT id, name, language, status, components
 			 FROM templates
 			 WHERE id = $1 AND org_id = $2`,
 			[templateId, orgId]
@@ -154,12 +157,24 @@ async function validateTemplate(
 				name: template.name,
 				language: template.language,
 				status: template.status,
+				components: Array.isArray(template.components)
+					? template.components
+					: JSON.parse(template.components || "[]"),
 			},
 		};
 	} catch (err: any) {
 		logger.error("[MessageService] Error validating template:", err);
 		return { valid: false, error: "Error validating template" };
 	}
+}
+
+function getExpectedBodyParamCount(components?: Array<{ type: string; text?: string }>): number {
+	if (!components) return 0;
+	const body = components.find((c) => c.type === "BODY");
+	if (!body?.text) return 0;
+	const matches = [...body.text.matchAll(/{{\s*(\d+)\s*}}/g)];
+	if (matches.length === 0) return 0;
+	return matches.reduce((max, match) => Math.max(max, Number(match[1])), 0);
 }
 
 function parseWhatsAppStatusCode(errorMessage: string): number | null {
@@ -342,6 +357,7 @@ export async function sendMessage(params: SendMessageParams): Promise<SendMessag
 		templateId,
 		messageBody,
 		templateParams,
+		retentionPolicy = "conversation",
 	} = params;
 
 	try {
@@ -377,6 +393,16 @@ export async function sendMessage(params: SendMessageParams): Promise<SendMessag
 				};
 			}
 			templateMeta = templateValidation.template;
+
+			const expectedParams = getExpectedBodyParamCount(templateMeta?.components);
+			const providedParams = buildTemplateParameters(templateParams).length;
+			if (expectedParams > 0 && providedParams !== expectedParams) {
+				return {
+					success: false,
+					messageId: "",
+					error: `Template requires ${expectedParams} variables, but ${providedParams} were provided.`,
+				};
+			}
 		}
 
 		// Phase 4.7: Check customer care window
@@ -405,7 +431,7 @@ export async function sendMessage(params: SendMessageParams): Promise<SendMessag
 				messageBody || `[Template: ${templateId}]`,
 				"sending",
 				templateId || null,
-				"conversation",
+				retentionPolicy,
 				templateParams ? JSON.stringify(templateParams) : null,
 			]
 		);
@@ -439,6 +465,14 @@ export async function sendMessage(params: SendMessageParams): Promise<SendMessag
 				messageId,
 				metaMessageId,
 			});
+
+			// Broadcast realtime event
+			broadcastToOrg(orgId, "message:sent", {
+				messageId,
+				conversationId,
+				contactId,
+				status: "sent",
+			});
 		} catch (err: any) {
 			const errorMessage = err.message || "Meta API send failed";
 			await db.query(
@@ -448,6 +482,15 @@ export async function sendMessage(params: SendMessageParams): Promise<SendMessag
 
 			logger.error("[MessageService] Meta API send failed", {
 				messageId,
+				error: errorMessage,
+			});
+
+			// Broadcast realtime event
+			broadcastToOrg(orgId, "message:failed", {
+				messageId,
+				conversationId,
+				contactId,
+				status: "failed",
 				error: errorMessage,
 			});
 

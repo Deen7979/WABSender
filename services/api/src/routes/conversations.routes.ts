@@ -2,12 +2,20 @@ import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
 import { db } from "../db/index.js";
 import { broadcastToOrg } from "../websocket/hub.js";
+import { sendMessage } from "../services/messageService.js";
 
 export const conversationsRouter = Router();
 
 // GET /conversations - List all conversations for org with pagination
 conversationsRouter.get("/", requireAuth, async (req, res) => {
 	const orgId = req.auth!.orgId;
+	
+	// Validate orgId exists
+	if (!orgId) {
+		console.error('[Conversations] Missing orgId in auth payload', { auth: req.auth });
+		return res.status(400).json({ error: "Invalid org context" });
+	}
+	
 	const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
 	const offset = parseInt(req.query.offset as string) || 0;
 
@@ -47,6 +55,10 @@ conversationsRouter.get("/:id", requireAuth, async (req, res) => {
 	const orgId = req.auth!.orgId;
 	const conversationId = req.params.id;
 
+	if (!orgId) {
+		return res.status(400).json({ error: "Invalid org context" });
+	}
+
 	try {
 		const result = await db.query(
 			`SELECT c.id, c.contact_id, c.last_message_at, c.created_at,
@@ -71,6 +83,11 @@ conversationsRouter.get("/:id", requireAuth, async (req, res) => {
 conversationsRouter.get("/:id/messages", requireAuth, async (req, res) => {
 	const orgId = req.auth!.orgId;
 	const conversationId = req.params.id;
+
+	if (!orgId) {
+		return res.status(400).json({ error: "Invalid org context" });
+	}
+
 	const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
 	const offset = parseInt(req.query.offset as string) || 0;
 
@@ -172,74 +189,27 @@ conversationsRouter.post("/:id/reply", requireAuth, async (req, res) => {
 
 		const { phone_number_id: phoneNumberId } = accountResult.rows[0];
 
-		// Build and send message
-		let payload: any = {
-			messaging_product: "whatsapp",
-			to: phoneNumber,
-		};
-
-		if (type === "template") {
-			const templateResult = await db.query(
-				"SELECT name, language FROM templates WHERE id = $1 AND org_id = $2",
-				[templateId, orgId]
-			);
-
-			if (templateResult.rowCount === 0) {
-				return res.status(404).json({ error: "Template not found" });
-			}
-
-			const { name, language } = templateResult.rows[0];
-			payload.type = "template";
-			payload.template = {
-				name,
-				language: { code: language },
-			};
-
-			if (variables && Object.keys(variables).length > 0) {
-				payload.template.components = [
-					{
-						type: "body",
-						parameters: Object.values(variables).map((v) => ({ type: "text", text: v })),
-					},
-				];
-			}
-		} else {
-			payload.type = "text";
-			payload.text = { preview_url: !!mediaUrl, body: text };
-		}
-
-		// TODO: Send to WhatsApp Cloud API
-		// For now, simulate success
-		const metaMessageId = `wamid_${Date.now()}`;
-
-		// Store message
-		const messageResult = await db.query(
-			`INSERT INTO messages (
-				org_id, conversation_id, contact_id, direction,
-				body, meta_message_id, status, retention_policy
-			)
-			VALUES ($1, $2, $3, 'outbound', $4, $5, 'sent', 'manual_reply')
-			RETURNING id`,
-			[
-				orgId,
-				conversationId,
-				contactId,
-				JSON.stringify(payload),
-				metaMessageId,
-			]
-		);
-
-		const messageId = messageResult.rows[0].id;
-
-		// Broadcast realtime update
-		broadcastToOrg(orgId, "message:sent", {
-			messageId,
-			conversationId,
+		// Send message using message service
+		const sendResult = await sendMessage({
+			orgId,
 			contactId,
-			status: "sent",
+			conversationId,
+			phoneNumberId,
+			recipientPhoneE164: phoneNumber,
+			templateId: type === "template" ? templateId : undefined,
+			messageBody: type === "text" ? text : undefined,
+			templateParams: type === "template" ? variables : undefined,
+			retentionPolicy: "manual_reply",
 		});
 
-		return res.json({ id: messageId, meta_message_id: metaMessageId });
+		if (!sendResult.success) {
+			return res.status(400).json({ error: sendResult.error });
+		}
+
+		return res.json({ 
+			id: sendResult.messageId, 
+			meta_message_id: sendResult.metaMessageId 
+		});
 	} catch (err: any) {
 		return res.status(500).json({ error: err.message });
 	}

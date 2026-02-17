@@ -144,6 +144,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ apiClient }) => 
                   value={createFormData.email}
                   onChange={(e) => setCreateFormData(prev => ({ ...prev, email: e.target.value }))}
                   required
+                  aria-label="Email"
                 />
               </div>
               <div className="form-group">
@@ -153,6 +154,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ apiClient }) => 
                   value={createFormData.password}
                   onChange={(e) => setCreateFormData(prev => ({ ...prev, password: e.target.value }))}
                   required
+                  aria-label="Password"
                 />
               </div>
               <div className="form-group">
@@ -160,6 +162,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ apiClient }) => 
                 <select
                   value={createFormData.role}
                   onChange={(e) => setCreateFormData(prev => ({ ...prev, role: e.target.value }))}
+                  aria-label="Role"
                 >
                   <option value="user">User</option>
                   <option value="admin">Admin</option>
@@ -184,6 +187,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ apiClient }) => 
                 <select
                   value={editFormData.role}
                   onChange={(e) => setEditFormData(prev => ({ ...prev, role: e.target.value }))}
+                  aria-label="Role"
                 >
                   <option value="user">User</option>
                   <option value="admin">Admin</option>
@@ -205,6 +209,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ apiClient }) => 
                   type="password"
                   value={editFormData.password}
                   onChange={(e) => setEditFormData(prev => ({ ...prev, password: e.target.value }))}
+                  aria-label="New Password"
                 />
               </div>
               <div className="modal-actions">

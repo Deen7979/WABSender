@@ -31,6 +31,8 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ apiClient }) => {
 	const [error, setError] = useState<string | null>(null);
 	const [syncing, setSyncing] = useState(false);
 	const [query, setQuery] = useState("");
+	const [statusFilter, setStatusFilter] = useState("ALL");
+	const [expandedTemplateIds, setExpandedTemplateIds] = useState<Set<string>>(new Set());
 
 	const loadTemplates = async () => {
 		try {
@@ -70,13 +72,34 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ apiClient }) => {
 
 	const filteredTemplates = useMemo(() => {
 		const q = query.trim().toLowerCase();
-		if (!q) return templates;
-		return templates.filter((t) =>
+		const byQuery = !q
+			? templates
+			: templates.filter((t) =>
 			[t.name, t.language, t.category, t.status]
 				.filter(Boolean)
 				.some((value) => String(value).toLowerCase().includes(q))
-		);
-	}, [templates, query]);
+		  );
+
+		if (statusFilter === "ALL") return byQuery;
+		return byQuery.filter((t) => (t.status || "UNKNOWN").toUpperCase() === statusFilter);
+	}, [templates, query, statusFilter]);
+
+	const statusOptions = useMemo(() => {
+		const statuses = Array.from(new Set(templates.map((t) => (t.status || "UNKNOWN").toUpperCase())));
+		return ["ALL", ...statuses.sort()];
+	}, [templates]);
+
+	const toggleExpanded = (templateId: string) => {
+		setExpandedTemplateIds((prev) => {
+			const next = new Set(prev);
+			if (next.has(templateId)) {
+				next.delete(templateId);
+			} else {
+				next.add(templateId);
+			}
+			return next;
+		});
+	};
 
 	return (
 		<div className="templates-page">
@@ -92,6 +115,17 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ apiClient }) => {
 						placeholder="Search templates"
 						aria-label="Search templates"
 					/>
+					<select
+						value={statusFilter}
+						onChange={(e) => setStatusFilter(e.target.value)}
+						aria-label="Filter by status"
+					>
+						{statusOptions.map((status) => (
+							<option key={status} value={status}>
+								{status === "ALL" ? "All statuses" : status}
+							</option>
+						))}
+					</select>
 					<button onClick={handleSync} disabled={syncing}>
 						{syncing ? "Syncing..." : "Sync Templates"}
 					</button>
@@ -116,12 +150,25 @@ export const TemplatesPage: React.FC<TemplatesPageProps> = ({ apiClient }) => {
 					) : (
 						filteredTemplates.map((template) => (
 							<div className="templates-row" key={template.id}>
-								<div className="templates-name">{template.name}</div>
-								<div>{template.language || "und"}</div>
-								<div>{getStatusBadge(template.status)}</div>
-								<div>{template.category || "UNKNOWN"}</div>
-								<div className="templates-preview">
-									{getBodyPreview(template.components) || "-"}
+								<div className="templates-field" data-label="Name">
+									<div className="templates-name">{template.name}</div>
+								</div>
+								<div className="templates-field" data-label="Language">{template.language || "und"}</div>
+								<div className="templates-field" data-label="Status">{getStatusBadge(template.status)}</div>
+								<div className="templates-field" data-label="Category">{template.category || "UNKNOWN"}</div>
+								<div className="templates-field" data-label="Preview">
+									<div className={`templates-preview ${expandedTemplateIds.has(template.id) ? "expanded" : ""}`}>
+										{getBodyPreview(template.components) || "-"}
+									</div>
+									{(getBodyPreview(template.components) || "").length > 80 && (
+										<button
+											type="button"
+											className="preview-toggle"
+											onClick={() => toggleExpanded(template.id)}
+										>
+											{expandedTemplateIds.has(template.id) ? "Show less" : "Show more"}
+										</button>
+									)}
 								</div>
 							</div>
 						))

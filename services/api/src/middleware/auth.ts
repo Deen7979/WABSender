@@ -16,15 +16,22 @@ declare module "express-serve-static-core" {
 }
 
 const resolveOrgContext = async (req: Request, payload: AuthPayload): Promise<string | null> => {
+	// Regular users always use their orgId from JWT
 	if (payload.role !== "super_admin") {
-		return payload.orgId || null;
+		// Ensure orgId is not empty - JWT should contain valid orgId or it's invalid
+		if (!payload.orgId || typeof payload.orgId !== "string" || payload.orgId.trim() === "") {
+			return null;
+		}
+		return payload.orgId;
 	}
 
+	// Super admin: resolve context from X-Org-Id header
 	const headerOrgId = req.headers["x-org-id"] as string | undefined;
 	if (!headerOrgId) {
 		return null;
 	}
 
+	// Validate the org exists
 	const orgResult = await db.query("SELECT id FROM orgs WHERE id = $1", [headerOrgId]);
 	if ((orgResult.rowCount ?? 0) === 0) {
 		return null;
@@ -43,8 +50,8 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
 	try {
 		const payload = jwt.verify(token, config.jwtSecret) as AuthPayload;
 		const resolvedOrgId = await resolveOrgContext(req, payload);
-		req.auth = { ...payload, orgId: resolvedOrgId || "" };
-
+		
+		// For super_admin users, org context is required (unless it's a platform API endpoint)
 		if (payload.role === "super_admin" && !resolvedOrgId) {
 			const baseUrl = req.baseUrl || "";
 			if (!baseUrl.startsWith("/api/platform")) {
@@ -52,12 +59,26 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
 			}
 		}
 
+		// For regular users, orgId from JWT must be resolved successfully
 		if (payload.role !== "super_admin" && !resolvedOrgId) {
-			return res.status(401).json({ error: "Invalid token" });
+			console.error('[Auth] Regular user missing or invalid orgId in JWT', { 
+				userId: payload.userId, 
+				role: payload.role,
+				orgIdInToken: payload.orgId
+			});
+			return res.status(400).json({ error: "Invalid token: missing valid org context" });
 		}
 
+		// Attach auth to request - ensure orgId is never empty string
+		req.auth = { 
+			userId: payload.userId, 
+			orgId: resolvedOrgId!,  // Guaranteed to be non-empty at this point
+			role: payload.role 
+		};
+
 		return next();
-	} catch {
+	} catch (err) {
+		console.error('[Auth] Token verification failed', { error: err instanceof Error ? err.message : String(err) });
 		return res.status(401).json({ error: "Invalid token" });
 	}
 };

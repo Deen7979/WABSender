@@ -43,7 +43,13 @@ authRouter.post("/login", async (req, res) => {
 		return res.status(401).json({ error: "Invalid credentials" });
 	}
 
-	const orgId = (user.org_id as string | null) || "";
+	// Validate user has an organization assigned
+	const orgId = user.org_id as string | null;
+	if (!orgId) {
+		console.error('[Auth] User has no org assigned', { userId: user.id, email });
+		return res.status(400).json({ error: "User account not properly configured - missing organization" });
+	}
+
 	const tokens = createTokens({ userId: user.id, orgId, role: user.role });
 	
 	// Log successful login
