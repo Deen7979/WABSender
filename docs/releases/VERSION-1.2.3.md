@@ -24,6 +24,7 @@ Backwards compatibility:
 Files changed:
 - `apps/desktop/package.json` -> version 1.2.3
 - `services/api/package.json` -> version 1.2.3
-- `releases/VERSION-1.2.3.md` -> this file
+- `releases/VERSION-1.2.3.md` -> original location (moved)
 
 For full Enterprise V2 roadmap, see `docs/newversion/12_ENTERPRISE_V2_IMPLEMENTATION_PLAN.md`.
+
