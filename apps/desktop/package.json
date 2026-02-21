@@ -1,7 +1,7 @@
 {
   "name": "whatsapp-desktop",
   "private": true,
-  "version": "1.2.3",
+  "version": "1.2.4",
   "repository": {
     "type": "git",
     "url": "https://github.com/Deen7979/WABSender.git"
@@ -21,14 +21,15 @@
   "dependencies": {
     "electron-log": "^5.1.4",
     "electron-updater": "^6.1.7",
+    "node-machine-id": "^1.1.12",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@electron/notarize": "^2.2.1",
+    "@types/node": "^20.12.12",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
-    "@types/node": "^20.12.12",
     "@vitejs/plugin-react": "^4.3.1",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
