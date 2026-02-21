@@ -7,7 +7,7 @@ import { logAudit, AuditAction } from "../middleware/auditLog.js";
 
 export const authRouter = Router();
 
-const createTokens = (payload: { userId: string; orgId: string; role: string }) => {
+const createTokens = (payload: { userId: string; orgId: string | null; role: string }) => {
 	const accessToken = jwt.sign(payload, config.jwtSecret, { expiresIn: "1h" });
 	const refreshToken = jwt.sign(payload, config.jwtRefreshSecret, { expiresIn: "30d" });
 	return { accessToken, refreshToken };
@@ -45,7 +45,7 @@ authRouter.post("/login", async (req, res) => {
 
 	// Validate user has an organization assigned
 	const orgId = user.org_id as string | null;
-	if (!orgId) {
+	if (user.role !== "super_admin" && !orgId) {
 		console.error('[Auth] User has no org assigned', { userId: user.id, email });
 		return res.status(400).json({ error: "User account not properly configured - missing organization" });
 	}
@@ -122,7 +122,7 @@ authRouter.post("/refresh", async (req, res) => {
 	try {
 		const payload = jwt.verify(refreshToken, config.jwtRefreshSecret) as {
 			userId: string;
-			orgId: string;
+			orgId: string | null;
 			role: string;
 		};
 

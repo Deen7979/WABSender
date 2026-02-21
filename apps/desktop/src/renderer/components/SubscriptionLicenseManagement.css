@@ -1,0 +1,624 @@
+/* Subscription License Management Styles */
+
+.subscription-license-management {
+	padding: 24px;
+	max-width: 1400px;
+	margin: 0 auto;
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 24px;
+}
+
+.header h2 {
+	margin: 0;
+	font-size: 28px;
+	font-weight: 600;
+	color: #1a1a1a;
+}
+
+/* Alerts */
+.alert {
+	padding: 12px 16px;
+	border-radius: 6px;
+	margin-bottom: 16px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.alert-error {
+	background-color: #fee;
+	color: #c33;
+	border: 1px solid #fcc;
+}
+
+.alert button {
+	background: none;
+	border: none;
+	font-size: 20px;
+	cursor: pointer;
+	color: inherit;
+	padding: 0 8px;
+}
+
+/* Buttons */
+.btn {
+	padding: 10px 20px;
+	border: none;
+	border-radius: 6px;
+	font-size: 14px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: all 0.2s;
+}
+
+.btn-primary {
+	background-color: #075e54;
+	color: white;
+}
+
+.btn-primary:hover {
+	background-color: #064a42;
+}
+
+.btn-secondary {
+	background-color: #f0f0f0;
+	color: #333;
+}
+
+.btn-secondary:hover {
+	background-color: #e0e0e0;
+}
+
+.btn-success {
+	background-color: #22c55e;
+	color: white;
+}
+
+.btn-success:hover {
+	background-color: #16a34a;
+}
+
+.btn-danger {
+	background-color: #ef4444;
+	color: white;
+}
+
+.btn-danger:hover {
+	background-color: #dc2626;
+}
+
+.btn-sm {
+	padding: 6px 12px;
+	font-size: 12px;
+}
+
+/* Tabs */
+.tabs {
+	display: flex;
+	gap: 4px;
+	margin-bottom: 24px;
+	border-bottom: 2px solid #e5e5e5;
+}
+
+.tab {
+	padding: 12px 24px;
+	background: none;
+	border: none;
+	border-bottom: 2px solid transparent;
+	cursor: pointer;
+	font-size: 14px;
+	font-weight: 500;
+	color: #666;
+	transition: all 0.2s;
+	margin-bottom: -2px;
+}
+
+.tab:hover {
+	color: #333;
+	background-color: #f9f9f9;
+}
+
+.tab.active {
+	color: #075e54;
+	border-bottom-color: #075e54;
+}
+
+/* Licenses Grid */
+.licenses-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+	gap: 20px;
+}
+
+.license-card {
+	background: white;
+	border: 1px solid #e5e5e5;
+	border-radius: 8px;
+	padding: 20px;
+	transition: box-shadow 0.2s;
+}
+
+.license-card:hover {
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.license-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	margin-bottom: 16px;
+	padding-bottom: 16px;
+	border-bottom: 1px solid #f0f0f0;
+}
+
+.license-header h3 {
+	margin: 0 0 4px 0;
+	font-size: 18px;
+	font-weight: 600;
+	color: #1a1a1a;
+}
+
+.license-id {
+	font-size: 12px;
+	color: #999;
+	font-family: 'Courier New', monospace;
+}
+
+.license-status {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+/* Status Badges */
+.status-badge {
+	padding: 4px 12px;
+	border-radius: 12px;
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.status-active {
+	background-color: #dcfce7;
+	color: #15803d;
+}
+
+.status-expired {
+	background-color: #fee2e2;
+	color: #991b1b;
+}
+
+.status-expiring {
+	background-color: #fef3c7;
+	color: #92400e;
+}
+
+.status-revoked {
+	background-color: #e5e5e5;
+	color: #666;
+}
+
+/* Heartbeat Indicator */
+.heartbeat-indicator {
+	font-size: 16px;
+	line-height: 1;
+}
+
+.heartbeat-recent {
+	color: #22c55e;
+}
+
+.heartbeat-warning {
+	color: #f59e0b;
+}
+
+.heartbeat-stale {
+	color: #ef4444;
+}
+
+.heartbeat-never {
+	color: #d1d5db;
+}
+
+/* License Details */
+.license-details {
+	margin-bottom: 16px;
+}
+
+.detail-row {
+	display: flex;
+	justify-content: space-between;
+	padding: 8px 0;
+	border-bottom: 1px solid #f9f9f9;
+}
+
+.detail-row:last-child {
+	border-bottom: none;
+}
+
+.detail-row .label {
+	font-weight: 500;
+	color: #666;
+	font-size: 13px;
+}
+
+.detail-row .value {
+	color: #1a1a1a;
+	font-size: 13px;
+	text-align: right;
+}
+
+.seats-indicator {
+	color: #999;
+	font-size: 11px;
+	margin-left: 4px;
+}
+
+/* License Actions */
+.license-actions {
+	display: flex;
+	gap: 8px;
+	padding-top: 16px;
+	border-top: 1px solid #f0f0f0;
+}
+
+.license-actions .btn {
+	flex: 1;
+}
+
+/* Device List */
+.device-list {
+	margin-top: 20px;
+	padding-top: 20px;
+	border-top: 2px solid #f0f0f0;
+}
+
+.device-list h4 {
+	margin: 0 0 12px 0;
+	font-size: 14px;
+	font-weight: 600;
+	color: #333;
+}
+
+.devices-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 12px;
+}
+
+.devices-table th {
+	text-align: left;
+	padding: 8px;
+	background-color: #f9f9f9;
+	font-weight: 600;
+	color: #666;
+	border-bottom: 2px solid #e5e5e5;
+}
+
+.devices-table td {
+	padding: 12px 8px;
+	border-bottom: 1px solid #f0f0f0;
+}
+
+.device-name {
+	font-weight: 500;
+	color: #1a1a1a;
+	margin-bottom: 2px;
+}
+
+.device-id {
+	color: #999;
+	font-family: 'Courier New', monospace;
+	font-size: 10px;
+}
+
+.device-status-active {
+	color: #22c55e;
+	font-weight: 600;
+}
+
+.device-status-inactive {
+	color: #999;
+	font-weight: 600;
+}
+
+.no-devices {
+	text-align: center;
+	color: #999;
+	padding: 20px;
+	font-size: 14px;
+}
+
+/* Empty State */
+.empty-state {
+	text-align: center;
+	padding: 60px 20px;
+}
+
+.empty-state p {
+	font-size: 16px;
+	color: #999;
+	margin-bottom: 20px;
+}
+
+/* Loading States */
+.loading {
+	text-align: center;
+	padding: 60px 20px;
+	color: #999;
+	font-size: 16px;
+}
+
+.loading-small {
+	text-align: center;
+	padding: 20px;
+	color: #999;
+	font-size: 14px;
+}
+
+/* Plans Grid */
+.plans-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+	gap: 20px;
+}
+
+.plan-card {
+	background: white;
+	border: 2px solid #e5e5e5;
+	border-radius: 12px;
+	padding: 24px;
+	text-align: center;
+}
+
+.plan-card h3 {
+	margin: 0 0 16px 0;
+	font-size: 24px;
+	font-weight: 700;
+	color: #075e54;
+}
+
+.plan-price {
+	font-size: 36px;
+	font-weight: 700;
+	color: #1a1a1a;
+	margin-bottom: 24px;
+}
+
+.plan-features {
+	text-align: left;
+}
+
+.plan-detail {
+	display: flex;
+	justify-content: space-between;
+	padding: 12px 0;
+	border-bottom: 1px solid #f0f0f0;
+}
+
+.plan-features-list {
+	margin-top: 16px;
+}
+
+.plan-features-list h4 {
+	font-size: 14px;
+	margin-bottom: 8px;
+	color: #666;
+}
+
+.plan-features-list pre {
+	background: #f9f9f9;
+	padding: 12px;
+	border-radius: 6px;
+	font-size: 11px;
+	overflow-x: auto;
+}
+
+/* Analytics */
+.analytics-cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+	gap: 20px;
+}
+
+.analytics-card {
+	background: white;
+	border: 1px solid #e5e5e5;
+	border-radius: 8px;
+	padding: 24px;
+	text-align: center;
+}
+
+.analytics-card h3 {
+	margin: 0 0 12px 0;
+	font-size: 14px;
+	font-weight: 500;
+	color: #666;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.analytics-value {
+	font-size: 48px;
+	font-weight: 700;
+	color: #075e54;
+}
+
+/* Modal */
+.modal-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background-color: rgba(0, 0, 0, 0.5);
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	z-index: 1000;
+}
+
+.modal {
+	background: white;
+	border-radius: 12px;
+	padding: 0;
+	width: 90%;
+	max-width: 600px;
+	max-height: 90vh;
+	overflow-y: auto;
+	box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 24px;
+	border-bottom: 1px solid #e5e5e5;
+}
+
+.modal-header h3 {
+	margin: 0;
+	font-size: 20px;
+	font-weight: 600;
+}
+
+.modal-header button {
+	background: none;
+	border: none;
+	font-size: 28px;
+	cursor: pointer;
+	color: #999;
+	padding: 0;
+	width: 32px;
+	height: 32px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.modal-header button:hover {
+	color: #333;
+}
+
+.modal form {
+	padding: 24px;
+}
+
+.form-group {
+	margin-bottom: 20px;
+}
+
+.form-group label {
+	display: block;
+	margin-bottom: 8px;
+	font-weight: 500;
+	color: #333;
+	font-size: 14px;
+}
+
+.form-group input,
+.form-group select {
+	width: 100%;
+	padding: 10px 12px;
+	border: 1px solid #e5e5e5;
+	border-radius: 6px;
+	font-size: 14px;
+	font-family: inherit;
+	box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+	outline: none;
+	border-color: #075e54;
+}
+
+.form-group small {
+	display: block;
+	margin-top: 4px;
+	font-size: 12px;
+	color: #999;
+}
+
+.modal-actions {
+	display: flex;
+	gap: 12px;
+	justify-content: flex-end;
+	padding-top: 20px;
+	border-top: 1px solid #e5e5e5;
+}
+
+/* Issued Key Display */
+.issued-key-display {
+	margin-top: 20px;
+	padding: 16px;
+	background-color: #dcfce7;
+	border: 1px solid #22c55e;
+	border-radius: 8px;
+}
+
+.issued-key-display strong {
+	display: block;
+	margin-bottom: 8px;
+	color: #15803d;
+}
+
+.license-key-code {
+	display: block;
+	padding: 12px;
+	background-color: white;
+	border: 1px solid #22c55e;
+	border-radius: 4px;
+	font-family: 'Courier New', monospace;
+	font-size: 16px;
+	font-weight: 600;
+	color: #075e54;
+	margin-bottom: 12px;
+	text-align: center;
+	letter-spacing: 1px;
+}
+
+.issued-key-display small {
+	display: block;
+	margin-top: 8px;
+	color: #15803d;
+	font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+	.licenses-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.plans-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.analytics-cards {
+		grid-template-columns: 1fr;
+	}
+
+	.modal {
+		width: 95%;
+		max-height: 95vh;
+	}
+
+	.devices-table {
+		font-size: 11px;
+	}
+
+	.devices-table th,
+	.devices-table td {
+		padding: 6px 4px;
+	}
+}

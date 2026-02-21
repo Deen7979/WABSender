@@ -1,0 +1,159 @@
+{
+    "Summary":  {
+                    "Warnings":  0,
+                    "PassRate":  100,
+                    "TotalTests":  16,
+                    "Failed":  0,
+                    "Passed":  16
+                },
+    "Environment":  "staging",
+    "EndTime":  "2026-02-22 01:13:43",
+    "Tests":  [
+                  {
+                      "Status":  "PASS",
+                      "Timestamp":  "2026-02-22 01:13:42",
+                      "Message":  "",
+                      "Metrics":  {
+                                      "Version":  "v24.12.0"
+                                  },
+                      "Test":  "Node.js installed"
+                  },
+                  {
+                      "Status":  "PASS",
+                      "Timestamp":  "2026-02-22 01:13:43",
+                      "Message":  "",
+                      "Metrics":  {
+                                      "Version":  "11.6.2"
+                                  },
+                      "Test":  "npm installed"
+                  },
+                  {
+                      "Status":  "PASS",
+                      "Timestamp":  "2026-02-22 01:13:43",
+                      "Message":  "",
+                      "Metrics":  {
+                                      "Version":  "psql (EnterpriseDB) 17.7.0"
+                                  },
+                      "Test":  "PostgreSQL client installed"
+                  },
+                  {
+                      "Status":  "PASS",
+                      "Timestamp":  "2026-02-22 01:13:43",
+                      "Message":  "",
+                      "Metrics":  {
+                                      "Size":  "15006 bytes"
+                                  },
+                      "Test":  "Migration file exists"
+                  },
+                  {
+                      "Status":  "PASS",
+                      "Timestamp":  "2026-02-22 01:13:43",
+                      "Message":  "",
+                      "Metrics":  {
+
+                                  },
+                      "Test":  "File exists: licenseKeyGenerator.ts"
+                  },
+                  {
+                      "Status":  "PASS",
+                      "Timestamp":  "2026-02-22 01:13:43",
+                      "Message":  "",
+                      "Metrics":  {
+
+                                  },
+                      "Test":  "File exists: licenseTokenService.ts"
+                  },
+                  {
+                      "Status":  "PASS",
+                      "Timestamp":  "2026-02-22 01:13:43",
+                      "Message":  "",
+                      "Metrics":  {
+
+                                  },
+                      "Test":  "File exists: subscription-license.routes.ts"
+                  },
+                  {
+                      "Status":  "PASS",
+                      "Timestamp":  "2026-02-22 01:13:43",
+                      "Message":  "",
+                      "Metrics":  {
+
+                                  },
+                      "Test":  "File exists: licenseService.ts"
+                  },
+                  {
+                      "Status":  "PASS",
+                      "Timestamp":  "2026-02-22 01:13:43",
+                      "Message":  "",
+                      "Metrics":  {
+
+                                  },
+                      "Test":  "File exists: SubscriptionLicenseManagement.tsx"
+                  },
+                  {
+                      "Status":  "PASS",
+                      "Timestamp":  "2026-02-22 01:13:43",
+                      "Message":  "",
+                      "Metrics":  {
+
+                                  },
+                      "Test":  "File exists: subscriptionLicenseAPI.ts"
+                  },
+                  {
+                      "Status":  "PASS",
+                      "Timestamp":  "2026-02-22 01:13:43",
+                      "Message":  "",
+                      "Metrics":  {
+
+                                  },
+                      "Test":  "File has exports: licenseKeyGenerator.ts"
+                  },
+                  {
+                      "Status":  "PASS",
+                      "Timestamp":  "2026-02-22 01:13:43",
+                      "Message":  "",
+                      "Metrics":  {
+
+                                  },
+                      "Test":  "File has exports: licenseTokenService.ts"
+                  },
+                  {
+                      "Status":  "PASS",
+                      "Timestamp":  "2026-02-22 01:13:43",
+                      "Message":  "",
+                      "Metrics":  {
+
+                                  },
+                      "Test":  "File has exports: subscription-license.routes.ts"
+                  },
+                  {
+                      "Status":  "PASS",
+                      "Timestamp":  "2026-02-22 01:13:43",
+                      "Message":  "",
+                      "Metrics":  {
+
+                                  },
+                      "Test":  "React component structure"
+                  },
+                  {
+                      "Status":  "PASS",
+                      "Timestamp":  "2026-02-22 01:13:43",
+                      "Message":  "",
+                      "Metrics":  {
+                                      "Lines":  3517
+                                  },
+                      "Test":  "Total lines of subscription code"
+                  },
+                  {
+                      "Status":  "PASS",
+                      "Timestamp":  "2026-02-22 01:13:43",
+                      "Message":  "",
+                      "Metrics":  {
+                                      "Bytes":  15006,
+                                      "KB":  14.65
+                                  },
+                      "Test":  "Migration file size"
+                  }
+              ],
+    "StartTime":  "2026-02-22 01:13:42"
+}

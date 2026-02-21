@@ -20,6 +20,7 @@ import { businessHoursRouter } from "./routes/business-hours.routes.js";
 import reportsRouter from "./routes/reports.routes.js";
 import auditLogsRouter from "./routes/audit-logs.routes.js";
 import { licenseRouter } from "./routes/license.routes.js";
+import { subscriptionLicenseRouter } from "./routes/subscription-license.routes.js";
 import { orgsRouter } from "./routes/orgs.routes.js";
 import { platformRouter } from "./routes/platform.routes.js";
 import { platformLicenseRouter } from "./routes/platform-license.routes.js";
@@ -49,6 +50,7 @@ export const createServer = () => {
 	app.use("/reports", reportsRouter);
 	app.use("/audit-logs", auditLogsRouter);
 	app.use("/license", licenseRouter);
+	app.use("/subscription", subscriptionLicenseRouter);
 	app.use("/orgs", orgsRouter);
 	app.use("/users", usersRouter);
 	app.use("/api/platform", platformRouter);
