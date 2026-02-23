@@ -129,6 +129,11 @@
 	border-radius: 4px;
 	font-size: 14px;
 	box-sizing: border-box;
+	margin-bottom: 8px;
+}
+
+.template-variables input:last-of-type {
+	margin-bottom: 0;
 }
 
 .template-variables input:focus {

@@ -9,7 +9,10 @@ import { ActivationScreen } from './components/ActivationScreen.js';
 import { WhatsAppConnection } from './components/WhatsAppConnection.js';
 import { TemplatesPage } from './components/TemplatesPage.js';
 import { SystemMonitoring } from './components/SystemMonitoring.js';
+import { LicenseManagement } from './components/LicenseManagement.js';
+import { UserManagement } from './components/UserManagement.js';
 import { PlatformDashboard } from './components/PlatformDashboard.js';
+import './App.css';
 
 declare global {
 	namespace NodeJS {
@@ -64,7 +67,7 @@ export const App: React.FC = () => {
 		const savedToken = localStorage.getItem('accessToken');
 		if (savedToken) {
 			setAccessToken(savedToken);
-			// Decode JWT to get orgId
+			// Decode JWT to get orgId and role
 			try {
 				const payload = JSON.parse(atob(savedToken.split('.')[1]));
 				setOrgId(payload.orgId);
@@ -73,6 +76,15 @@ export const App: React.FC = () => {
 					return;
 				}
 				setRole(payload.role || null);
+
+				// Only super_admin users need to set orgContextId for context switching
+				// Regular users will have their orgId extracted from JWT by the server
+				if (payload.role === 'super_admin') {
+					const storedOrgContextId = localStorage.getItem('orgContextId');
+					if (storedOrgContextId) {
+						setOrgContextId(storedOrgContextId);
+					}
+				}
 			} catch (e) {
 				console.warn('Failed to decode token:', e);
 				clearAuthState();
@@ -84,11 +96,7 @@ export const App: React.FC = () => {
 			setOrgName(storedOrgName);
 		}
 
-		const storedOrgContextId = localStorage.getItem('orgContextId');
 		const storedOrgContextName = localStorage.getItem('orgContextName');
-		if (storedOrgContextId) {
-			setOrgContextId(storedOrgContextId);
-		}
 		if (storedOrgContextName) {
 			setOrgContextName(storedOrgContextName);
 		}
@@ -143,6 +151,13 @@ export const App: React.FC = () => {
 	useEffect(() => {
 		const client = createApiClient(API_BASE_URL, () => accessToken, () => orgContextId);
 		setApiClient(client);
+
+		// Log context for debugging
+		if (role && orgContextId) {
+			console.log(`[Auth] Org context set: ${role} user with org ${orgContextId}`);
+		} else if (role && !orgContextId && role !== 'super_admin') {
+			console.log(`[Auth] Regular user without explicit context - using JWT org`);
+		}
 
 		// Initialize WebSocket if token available
 		if (accessToken) {
@@ -215,7 +230,25 @@ export const App: React.FC = () => {
 			return;
 		}
 
+		// For super_admin without a context, try to auto-select an org
 		if (role === 'super_admin' && !orgContextId) {
+			const autoSelectOrgContext = async () => {
+				try {
+					const orgs = await apiClient.listPlatformOrgs();
+					if (orgs && Array.isArray(orgs) && orgs.length > 0) {
+						const firstOrg = orgs[0];
+						setOrgContextId(firstOrg.id);
+						if (firstOrg.name) {
+							setOrgContextName(firstOrg.name);
+							localStorage.setItem('orgContextId', firstOrg.id);
+							localStorage.setItem('orgContextName', firstOrg.name);
+						}
+					}
+				} catch (err) {
+					console.warn('Failed to auto-select org context for super_admin:', err);
+				}
+			};
+			autoSelectOrgContext();
 			return;
 		}
 
@@ -230,6 +263,9 @@ export const App: React.FC = () => {
 				console.warn('Failed to load org profile:', err);
 				if (String(err).includes('Invalid token') || String(err).includes('Unauthorized')) {
 					clearAuthState();
+				} else if (String(err).includes('org context required')) {
+					// Super admin without context - will be auto-selected
+					console.log('Waiting for org context to be selected...');
 				}
 			}
 		};
@@ -371,135 +407,64 @@ export const App: React.FC = () => {
 	}
 
 	return (
-		<div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-			<nav style={{ 
-				background: '#075e54', 
-				color: '#fff', 
-				padding: '12px 24px', 
-				display: 'flex', 
-				gap: '16px',
-				boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-				justifyContent: 'space-between',
-				alignItems: 'center'
-			}}>
-				<div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+		<div className="app-container">
+			<nav className="app-nav">
+				<div className="nav-left">
 					{role === 'super_admin' && orgContextId && (
 						<button
 							onClick={exitOrgContext}
-							style={{
-								background: 'rgba(255,255,255,0.2)',
-								color: '#fff',
-								border: 'none',
-								padding: '6px 10px',
-								borderRadius: '4px',
-								cursor: 'pointer',
-								fontSize: '12px',
-								fontWeight: 600
-							}}
+							className="exit-org-btn"
 						>
 							Exit Org Context
 						</button>
 					)}
 					{role === 'super_admin' && orgContextId && (
-						<span style={{ fontSize: '12px', opacity: 0.9 }}>
+						<span className="org-context-span">
 							Org: {orgContextName || orgContextId}
 						</span>
 					)}
 					<button
 						onClick={() => setCurrentView('inbox')}
-						style={{
-							background: currentView === 'inbox' ? '#25d366' : 'transparent',
-							color: '#fff',
-							border: 'none',
-							padding: '8px 16px',
-							borderRadius: '4px',
-							cursor: 'pointer',
-							fontSize: '14px',
-							fontWeight: 600
-						}}
+						className={`nav-btn ${currentView === 'inbox' ? 'active' : ''}`}
 					>
 						💬 Inbox
 					</button>
 					<button
 						onClick={() => setCurrentView('campaigns')}
-						style={{
-							background: currentView === 'campaigns' ? '#25d366' : 'transparent',
-							color: '#fff',
-							border: 'none',
-							padding: '8px 16px',
-							borderRadius: '4px',
-							cursor: 'pointer',
-							fontSize: '14px',
-							fontWeight: 600
-						}}
+						className={`nav-btn ${currentView === 'campaigns' ? 'active' : ''}`}
 					>
 						📢 Campaigns
 					</button>
 					<button
 						onClick={() => setCurrentView('templates')}
-						style={{
-							background: currentView === 'templates' ? '#25d366' : 'transparent',
-							color: '#fff',
-							border: 'none',
-							padding: '8px 16px',
-							borderRadius: '4px',
-							cursor: 'pointer',
-							fontSize: '14px',
-							fontWeight: 600
-						}}
+						className={`nav-btn ${currentView === 'templates' ? 'active' : ''}`}
 					>
 						🧩 Templates
 					</button>
 					<button
 						onClick={() => setCurrentView('settings')}
-						style={{
-							background: currentView === 'settings' ? '#25d366' : 'transparent',
-							color: '#fff',
-							border: 'none',
-							padding: '8px 16px',
-							borderRadius: '4px',
-							cursor: 'pointer',
-							fontSize: '14px',
-							fontWeight: 600
-						}}
+						className={`nav-btn ${currentView === 'settings' ? 'active' : ''}`}
 					>
 						⚙️ Settings
 					</button>
 				</div>
 				<button
 					onClick={handleLogout}
-					style={{
-						background: 'rgba(255,255,255,0.2)',
-						color: '#fff',
-						border: 'none',
-						padding: '8px 16px',
-						borderRadius: '4px',
-						cursor: 'pointer',
-						fontSize: '14px',
-						fontWeight: 600
-					}}
+					className="logout-btn"
 				>
 					🚪 Logout
 				</button>
 			</nav>
-			<div style={{ flex: 1, overflowY: 'auto' }}>
+			<div className="main-content">
 				{currentView === 'inbox' && <InboxContainer apiClient={apiClient} wsClient={wsClient} />}
 				{currentView === 'campaigns' && <CampaignContainer apiClient={apiClient} wsClient={wsClient} />}
 				{currentView === 'templates' && <TemplatesPage apiClient={apiClient} />}
 				{currentView === 'settings' && (
-					<div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-						<div style={{
-							padding: '10px 14px',
-							borderRadius: '6px',
-							border: '1px solid #e5e5e5',
-							background: role === 'admin' ? '#e9f6ef' : '#f5f5f5',
-							color: role === 'admin' ? '#0f6b3e' : '#666',
-							fontSize: '13px',
-							fontWeight: 600
-						}}>
+					<div className="settings-container">
+					<div className={`role-card ${role === 'admin' ? 'admin' : ''}`}>
 							Role: {role || 'unknown'} | Org: {orgName || orgId || 'unknown'}
 							{orgName && orgId && (
-								<span style={{ fontSize: '11px', fontWeight: 500, color: role === 'admin' ? '#2b7a53' : '#888' }}>
+								<span className={`role-id ${role === 'admin' ? 'admin' : ''}`}>
 									 (id: {orgId})
 								</span>
 							)}

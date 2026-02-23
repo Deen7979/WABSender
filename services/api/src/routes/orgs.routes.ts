@@ -7,6 +7,12 @@ export const orgsRouter = Router();
 
 orgsRouter.get("/me", requireAuth, async (req, res) => {
 	const orgId = req.auth!.orgId;
+	
+	if (!orgId) {
+		console.error('[Orgs] Missing orgId in /me endpoint', { auth: req.auth });
+		return res.status(400).json({ error: "Invalid org context" });
+	}
+	
 	const result = await db.query("SELECT id, name FROM orgs WHERE id = $1", [orgId]);
 	if (result.rowCount === 0) {
 		return res.status(404).json({ error: "Organization not found" });

@@ -15,6 +15,12 @@ export const templatesRouter = Router();
 templatesRouter.get("/", requireAuth, async (req, res) => {
 	try {
 		const orgId = req.auth!.orgId;
+		
+		if (!orgId) {
+			logger.warn("Templates endpoint called without orgId", { auth: req.auth });
+			return res.status(400).json({ error: "Invalid org context" });
+		}
+		
 		const templates = await getApprovedTemplates(orgId);
 		res.json(templates);
 	} catch (err: any) {
@@ -31,6 +37,12 @@ templatesRouter.get("/", requireAuth, async (req, res) => {
 templatesRouter.post("/sync", requireAuth, auditMiddleware(AuditAction.TEMPLATE_SYNCED, ResourceType.TEMPLATE), async (req, res) => {
 	try {
 		const orgId = req.auth!.orgId;
+		
+		if (!orgId) {
+			logger.warn("Template sync endpoint called without orgId", { auth: req.auth });
+			return res.status(400).json({ error: "Invalid org context" });
+		}
+		
 		const result = await manualSyncTemplates(orgId);
 
 		if (!result.success) {
@@ -66,6 +78,11 @@ templatesRouter.post("/sync", requireAuth, auditMiddleware(AuditAction.TEMPLATE_
 templatesRouter.get("/status", requireAuth, async (req, res) => {
 	try {
 		const orgId = req.auth!.orgId;
+
+		if (!orgId) {
+			logger.warn("Template status endpoint called without orgId", { auth: req.auth });
+			return res.status(400).json({ error: "Invalid org context" });
+		}
 
 		const result = await db.query(
 			`SELECT 

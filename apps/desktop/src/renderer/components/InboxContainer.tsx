@@ -32,11 +32,30 @@ export const InboxContainer: React.FC<InboxContainerProps> = ({
 	React.useEffect(() => {
 		if (!apiClient) return;
 		const loadTemplates = async () => {
-			try {
-				const data = await apiClient.listTemplates();
-				setTemplates(data || []);
-			} catch (err: any) {
-				console.error("Failed to load templates:", err.message || err);
+			let retries = 0;
+			let lastError: any = null;
+			
+			while (retries < 3) {
+				try {
+					const data = await apiClient.listTemplates();
+					setTemplates(data || []);
+					return; // Success, exit
+				} catch (err: any) {
+					lastError = err;
+					const errMsg = typeof err === 'object' && err.error 
+						? err.error 
+						: err.message || String(err);
+					
+					if (String(errMsg).includes('org context required') && retries < 2) {
+						// Retry after a delay for org context to be set
+						console.log(`[InboxContainer] Retrying templates load due to org context (attempt ${retries + 1}/3)`);
+						retries++;
+						await new Promise(resolve => setTimeout(resolve, 600));
+					} else {
+						console.error("[InboxContainer] Failed to load templates:", errMsg);
+						return; // Permanent error or max retries
+					}
+				}
 			}
 		};
 		loadTemplates();

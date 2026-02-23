@@ -33,10 +33,36 @@ export const ConversationList: React.FC<ConversationListProps> = React.memo(({
 		try {
 			setLoading(true);
 			setError(null);
-			const response = await apiClient.listConversations({ limit: 100 });
-			setConversations(response.conversations || []);
+			let retries = 0;
+			let lastError: any = null;
+			
+			while (retries < 3) {
+				try {
+					const response = await apiClient.listConversations({ limit: 100 });
+					setConversations(response.conversations || []);
+					return; // Success
+				} catch (err: any) {
+					lastError = err;
+					const errMsg = typeof err === 'object' && err.error 
+						? err.error 
+						: err.message || String(err);
+					
+					if (String(errMsg).includes('org context required') && retries < 2) {
+						// Retry after a delay for org context to be set
+						console.log(`[ConversationList] Retrying due to org context (attempt ${retries + 1}/3)`);
+						retries++;
+						await new Promise(resolve => setTimeout(resolve, 600));
+					} else {
+						throw err;
+					}
+				}
+			}
+			// If we get here, all retries were exhausted
+			throw lastError;
 		} catch (err: any) {
-			setError(err.message || "Failed to load conversations");
+			const errMsg = err.message || String(err);
+			console.error('[ConversationList] Failed to load:', errMsg);
+			setError(errMsg);
 		} finally {
 			setLoading(false);
 		}

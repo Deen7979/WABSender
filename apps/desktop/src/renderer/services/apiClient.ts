@@ -1,10 +1,14 @@
 type Tokens = { accessToken: string; refreshToken: string };
 
+import { subscriptionLicenseAPI } from "./subscriptionLicenseAPI";
+
 export const createApiClient = (
 	baseUrl: string,
 	getToken: () => string | null,
 	getOrgContextId?: () => string | null
 ) => {
+	const getAuthToken = () => getToken() || localStorage.getItem("accessToken") || "";
+
 	const request = async <T>(path: string, options: RequestInit = {}): Promise<T> => {
 		const token = getToken() || localStorage.getItem("accessToken");
 		const orgContextId = getOrgContextId ? getOrgContextId() : null;
@@ -70,6 +74,23 @@ export const createApiClient = (
 		listPlatformOrgs: () => request("/api/platform/orgs"),
 		listPlatformUsers: () => request("/api/platform/users"),
 		listPlatformLicenses: () => request("/api/platform/licenses"),
+		getSubscriptionPlans: () =>
+			subscriptionLicenseAPI.getSubscriptionPlans(baseUrl, getAuthToken()),
+		getSubscriptionLicenses: (filters?: { orgId?: string; status?: string }) =>
+			subscriptionLicenseAPI.getSubscriptionLicenses(baseUrl, getAuthToken(), filters),
+		getSubscriptionLicenseDetails: (licenseId: string) =>
+			subscriptionLicenseAPI.getSubscriptionLicenseDetails(baseUrl, getAuthToken(), licenseId),
+		issueSubscriptionLicense: (payload: {
+			orgId: string;
+			planCode: string;
+			seats?: number;
+			expiresAt?: string;
+			metadata?: Record<string, unknown>;
+		}) => subscriptionLicenseAPI.issueSubscriptionLicense(baseUrl, getAuthToken(), payload),
+		renewSubscriptionLicense: (licenseId: string, extensionDays?: number) =>
+			subscriptionLicenseAPI.renewSubscriptionLicense(baseUrl, getAuthToken(), licenseId, extensionDays),
+		revokeSubscriptionLicense: (licenseId: string, payload?: { reason?: string }) =>
+			subscriptionLicenseAPI.revokeSubscriptionLicense(baseUrl, getAuthToken(), licenseId, payload),
 		platformIssueLicense: (payload: { orgId: string; planCode?: string; maxDevices?: number; expiresAt?: string }) =>
 			request("/api/platform/licenses/issue", {
 				method: "POST",

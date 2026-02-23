@@ -1,0 +1,146 @@
+{
+  "timestamp": "2026-02-21T19:47:21.125Z",
+  "environment": "http://localhost:3000",
+  "summary": {
+    "total": 15,
+    "passed": 14,
+    "failed": 1,
+    "warnings": 2,
+    "passRate": 93.33
+  },
+  "tests": [
+    {
+      "test": "License key format",
+      "status": "PASS",
+      "message": "",
+      "metrics": {
+        "key": "WAB-KJA8C-MSDGK-XCAT4-6MTCH"
+      },
+      "timestamp": "2026-02-21T19:47:19.092Z"
+    },
+    {
+      "test": "Key uniqueness (100 keys)",
+      "status": "PASS",
+      "message": "",
+      "metrics": {
+        "unique": 100
+      },
+      "timestamp": "2026-02-21T19:47:19.093Z"
+    },
+    {
+      "test": "Key length validation",
+      "status": "FAIL",
+      "message": "Expected 28, got 27",
+      "metrics": {
+        "length": 27
+      },
+      "timestamp": "2026-02-21T19:47:19.094Z"
+    },
+    {
+      "test": "No ambiguous characters",
+      "status": "PASS",
+      "message": "",
+      "metrics": {},
+      "timestamp": "2026-02-21T19:47:19.095Z"
+    },
+    {
+      "test": "PostgreSQL driver",
+      "status": "WARN",
+      "message": "pg module not installed, skipping database tests",
+      "metrics": {},
+      "timestamp": "2026-02-21T19:47:19.096Z"
+    },
+    {
+      "test": "JWT library",
+      "status": "WARN",
+      "message": "jsonwebtoken not installed, skipping JWT tests",
+      "metrics": {},
+      "timestamp": "2026-02-21T19:47:19.097Z"
+    },
+    {
+      "test": "Device ID generation",
+      "status": "PASS",
+      "message": "",
+      "metrics": {
+        "id": "71ce2f96d3520067..."
+      },
+      "timestamp": "2026-02-21T19:47:19.098Z"
+    },
+    {
+      "test": "Device ID consistency",
+      "status": "PASS",
+      "message": "",
+      "metrics": {},
+      "timestamp": "2026-02-21T19:47:19.100Z"
+    },
+    {
+      "test": "Device ID uniqueness",
+      "status": "PASS",
+      "message": "",
+      "metrics": {},
+      "timestamp": "2026-02-21T19:47:19.101Z"
+    },
+    {
+      "test": "AES encryption",
+      "status": "PASS",
+      "message": "",
+      "metrics": {
+        "encryptedLength": 224
+      },
+      "timestamp": "2026-02-21T19:47:19.104Z"
+    },
+    {
+      "test": "AES decryption",
+      "status": "PASS",
+      "message": "",
+      "metrics": {},
+      "timestamp": "2026-02-21T19:47:19.104Z"
+    },
+    {
+      "test": "Decrypted data integrity",
+      "status": "PASS",
+      "message": "",
+      "metrics": {},
+      "timestamp": "2026-02-21T19:47:19.104Z"
+    },
+    {
+      "test": "Encryption security (wrong key)",
+      "status": "PASS",
+      "message": "",
+      "metrics": {},
+      "timestamp": "2026-02-21T19:47:19.105Z"
+    },
+    {
+      "test": "License expiry calculation",
+      "status": "PASS",
+      "message": "",
+      "metrics": {
+        "expiry": "2027-01-01"
+      },
+      "timestamp": "2026-02-21T19:47:19.106Z"
+    },
+    {
+      "test": "Grace period calculation",
+      "status": "PASS",
+      "message": "",
+      "metrics": {
+        "days": 3
+      },
+      "timestamp": "2026-02-21T19:47:19.106Z"
+    },
+    {
+      "test": "Expired license detection",
+      "status": "PASS",
+      "message": "",
+      "metrics": {},
+      "timestamp": "2026-02-21T19:47:19.107Z"
+    },
+    {
+      "test": "Active license detection",
+      "status": "PASS",
+      "message": "",
+      "metrics": {},
+      "timestamp": "2026-02-21T19:47:19.107Z"
+    }
+  ]
+}
