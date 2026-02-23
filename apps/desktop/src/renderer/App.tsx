@@ -6,12 +6,14 @@ import { CampaignContainer } from './components/CampaignContainer.js';
 import { InboxContainer } from './components/InboxContainer.js';
 import { AuthScreen } from './components/AuthScreen.js';
 import { ActivationScreen } from './components/ActivationScreen.js';
-import { WhatsAppConnection } from './components/WhatsAppConnection.js';
 import { TemplatesPage } from './components/TemplatesPage.js';
 import { SystemMonitoring } from './components/SystemMonitoring.js';
 import { LicenseManagement } from './components/LicenseManagement.js';
 import { UserManagement } from './components/UserManagement.js';
 import { PlatformDashboard } from './components/PlatformDashboard.js';
+import { ManageBrandsPage } from './components/ManageBrandsPage.js';
+import { BrandCreatePage } from './components/BrandCreatePage.js';
+import { BrandWhatsAppSetupPage } from './components/BrandWhatsAppSetupPage.js';
 import './App.css';
 
 declare global {
@@ -23,12 +25,12 @@ declare global {
 	}
 }
 
-const API_BASE_URL = 
-	((globalThis as any).process?.env?.VITE_API_URL) || 
-	((globalThis as any).process?.env?.REACT_APP_API_URL) || 
+const API_BASE_URL =
+	((globalThis as any).process?.env?.VITE_API_URL) ||
+	((globalThis as any).process?.env?.REACT_APP_API_URL) ||
 	'http://localhost:4000';
 
-type View = 'inbox' | 'campaigns' | 'templates' | 'settings';
+type View = 'inbox' | 'campaigns' | 'templates' | 'settings' | 'brands' | 'brand-create' | 'brand-whatsapp-setup';
 type ActivationStatus = 'unknown' | 'active' | 'inactive';
 
 export const App: React.FC = () => {
@@ -41,6 +43,9 @@ export const App: React.FC = () => {
 	const [currentView, setCurrentView] = useState<View>('inbox');
 	const [orgContextId, setOrgContextId] = useState<string | null>(null);
 	const [orgContextName, setOrgContextName] = useState<string | null>(null);
+	const [activeBrandId, setActiveBrandId] = useState<string | null>(null);
+	const [activeBrandName, setActiveBrandName] = useState<string | null>(null);
+	const [setupBrandId, setSetupBrandId] = useState<string | null>(null);
 	const [deviceId, setDeviceId] = useState<string | null>(null);
 	const [activationStatus, setActivationStatus] = useState<ActivationStatus>('unknown');
 
@@ -50,11 +55,15 @@ export const App: React.FC = () => {
 		localStorage.removeItem('orgName');
 		localStorage.removeItem('orgContextId');
 		localStorage.removeItem('orgContextName');
+		localStorage.removeItem('activeBrandId');
+		localStorage.removeItem('activeBrandName');
 		setAccessToken(null);
 		setRole(null);
 		setOrgName(null);
 		setOrgContextId(null);
 		setOrgContextName(null);
+		setActiveBrandId(null);
+		setActiveBrandName(null);
 		setActivationStatus('unknown');
 		if (wsClient) {
 			wsClient.close();
@@ -62,12 +71,27 @@ export const App: React.FC = () => {
 		}
 	};
 
-	// Load token from localStorage on mount
+	const setActiveBrand = (brandId: string, brandName?: string | null) => {
+		if (!brandId) {
+			setActiveBrandId(null);
+			setActiveBrandName(null);
+			localStorage.removeItem('activeBrandId');
+			localStorage.removeItem('activeBrandName');
+			setCurrentView('brands');
+			return;
+		}
+		setActiveBrandId(brandId);
+		localStorage.setItem('activeBrandId', brandId);
+		if (brandName) {
+			setActiveBrandName(brandName);
+			localStorage.setItem('activeBrandName', brandName);
+		}
+	};
+
 	useEffect(() => {
 		const savedToken = localStorage.getItem('accessToken');
 		if (savedToken) {
 			setAccessToken(savedToken);
-			// Decode JWT to get orgId and role
 			try {
 				const payload = JSON.parse(atob(savedToken.split('.')[1]));
 				setOrgId(payload.orgId);
@@ -77,8 +101,6 @@ export const App: React.FC = () => {
 				}
 				setRole(payload.role || null);
 
-				// Only super_admin users need to set orgContextId for context switching
-				// Regular users will have their orgId extracted from JWT by the server
 				if (payload.role === 'super_admin') {
 					const storedOrgContextId = localStorage.getItem('orgContextId');
 					if (storedOrgContextId) {
@@ -92,23 +114,13 @@ export const App: React.FC = () => {
 		}
 
 		const storedOrgName = localStorage.getItem('orgName');
-		if (storedOrgName) {
-			setOrgName(storedOrgName);
-		}
-
+		if (storedOrgName) setOrgName(storedOrgName);
 		const storedOrgContextName = localStorage.getItem('orgContextName');
-		if (storedOrgContextName) {
-			setOrgContextName(storedOrgContextName);
-		}
-
-		const storedActivation = localStorage.getItem('licenseActivation');
-		if (storedActivation) {
-			try {
-				// setActivationInfo(JSON.parse(storedActivation));
-			} catch {
-				localStorage.removeItem('licenseActivation');
-			}
-		}
+		if (storedOrgContextName) setOrgContextName(storedOrgContextName);
+		const storedBrandId = localStorage.getItem('activeBrandId');
+		if (storedBrandId) setActiveBrandId(storedBrandId);
+		const storedBrandName = localStorage.getItem('activeBrandName');
+		if (storedBrandName) setActiveBrandName(storedBrandName);
 	}, []);
 
 	useEffect(() => {
@@ -117,9 +129,7 @@ export const App: React.FC = () => {
 			try {
 				if (window.desktop?.getDeviceId) {
 					const id = await window.desktop.getDeviceId();
-					if (isMounted) {
-						setDeviceId(id);
-					}
+					if (isMounted) setDeviceId(id);
 					return;
 				}
 			} catch {
@@ -128,17 +138,13 @@ export const App: React.FC = () => {
 
 			const stored = localStorage.getItem('deviceId');
 			if (stored) {
-				if (isMounted) {
-					setDeviceId(stored);
-				}
+				if (isMounted) setDeviceId(stored);
 				return;
 			}
 
 			const generated = crypto.randomUUID();
 			localStorage.setItem('deviceId', generated);
-			if (isMounted) {
-				setDeviceId(generated);
-			}
+			if (isMounted) setDeviceId(generated);
 		};
 
 		loadDeviceId();
@@ -147,24 +153,13 @@ export const App: React.FC = () => {
 		};
 	}, []);
 
-	// Initialize API client and WebSocket when token changes
 	useEffect(() => {
-		const client = createApiClient(API_BASE_URL, () => accessToken, () => orgContextId);
+		const client = createApiClient(API_BASE_URL, () => accessToken, () => orgContextId, () => activeBrandId);
 		setApiClient(client);
 
-		// Log context for debugging
-		if (role && orgContextId) {
-			console.log(`[Auth] Org context set: ${role} user with org ${orgContextId}`);
-		} else if (role && !orgContextId && role !== 'super_admin') {
-			console.log(`[Auth] Regular user without explicit context - using JWT org`);
-		}
-
-		// Initialize WebSocket if token available
 		if (accessToken) {
 			const initWebSocket = async () => {
 				let tokenToUse = accessToken;
-
-				// Check if token is expired and refresh if needed
 				if (isTokenExpired(accessToken)) {
 					try {
 						const refreshToken = getRefreshToken();
@@ -174,7 +169,6 @@ export const App: React.FC = () => {
 							setAccessToken(newTokens.accessToken);
 							tokenToUse = newTokens.accessToken;
 						} else {
-							// No refresh token, clear auth
 							clearAuthState();
 							return;
 						}
@@ -191,46 +185,29 @@ export const App: React.FC = () => {
 					(data) => {
 						console.log('WebSocket message:', data);
 					},
-					orgContextId,
+					activeBrandId,
 					(error) => {
 						console.error('WebSocket error:', error);
 					},
 					(event) => {
 						console.log('WebSocket closed:', event.code, event.reason);
-						// If closed due to auth error (1008), try to refresh token and reconnect
-						if (event.code === 1008 && event.reason.includes('token') || event.reason.includes('expired')) {
-							console.log('Token expired, attempting to refresh...');
-							// The useEffect will trigger again when accessToken changes
+						if ((event.code === 1008 && event.reason.includes('token')) || event.reason.includes('expired')) {
 							setTimeout(() => {
 								const currentToken = getValidAccessToken();
-								if (currentToken) {
-									setAccessToken(currentToken);
-								}
+								if (currentToken) setAccessToken(currentToken);
 							}, 1000);
 						}
 					}
 				);
 				setWsClient(ws);
-
-				return () => {
-					ws.close();
-				};
 			};
 
 			initWebSocket();
 		}
-	}, [accessToken, orgContextId]);
+	}, [accessToken, orgContextId, activeBrandId]);
 
 	useEffect(() => {
-		if (!apiClient || !accessToken) {
-			return;
-		}
-
-		if (!role) {
-			return;
-		}
-
-		// For super_admin without a context, try to auto-select an org
+		if (!apiClient || !accessToken || !role) return;
 		if (role === 'super_admin' && !orgContextId) {
 			const autoSelectOrgContext = async () => {
 				try {
@@ -251,7 +228,6 @@ export const App: React.FC = () => {
 			autoSelectOrgContext();
 			return;
 		}
-
 		const loadOrgName = async () => {
 			try {
 				const response = await apiClient.getOrgProfile();
@@ -261,31 +237,15 @@ export const App: React.FC = () => {
 				}
 			} catch (err) {
 				console.warn('Failed to load org profile:', err);
-				if (String(err).includes('Invalid token') || String(err).includes('Unauthorized')) {
-					clearAuthState();
-				} else if (String(err).includes('org context required')) {
-					// Super admin without context - will be auto-selected
-					console.log('Waiting for org context to be selected...');
-				}
+				if (String(err).includes('Invalid token') || String(err).includes('Unauthorized')) clearAuthState();
 			}
 		};
-
 		loadOrgName();
 	}, [apiClient, accessToken, role, orgContextId]);
 
 	useEffect(() => {
-		if (!accessToken || !deviceId || !apiClient) {
-			return;
-		}
-
-		if (!role) {
-			return;
-		}
-
-		// Super admins don't need license activation
-		if (role === 'super_admin') {
-			return;
-		}
+		if (!accessToken || !deviceId || !apiClient || !role) return;
+		if (role === 'super_admin') return;
 
 		const validateActivation = async () => {
 			try {
@@ -298,7 +258,6 @@ export const App: React.FC = () => {
 						planCode: result.planCode,
 						expiresAt: result.expiresAt
 					};
-					// setActivationInfo(info);
 					localStorage.setItem('licenseActivation', JSON.stringify(info));
 					setActivationStatus('active');
 				} else {
@@ -307,19 +266,17 @@ export const App: React.FC = () => {
 			} catch (err) {
 				console.warn('Activation validation failed:', err);
 				setActivationStatus('inactive');
-				if (String(err).includes('Invalid token') || String(err).includes('Unauthorized')) {
-					clearAuthState();
-				}
+				if (String(err).includes('Invalid token') || String(err).includes('Unauthorized')) clearAuthState();
 			}
 		};
 
 		validateActivation();
 	}, [accessToken, deviceId, apiClient, role, orgContextId]);
 
-	const handleLoginSuccess = (accessToken: string, refreshToken: string) => {
-		localStorage.setItem('accessToken', accessToken);
+	const handleLoginSuccess = (newAccessToken: string, refreshToken: string) => {
+		localStorage.setItem('accessToken', newAccessToken);
 		localStorage.setItem('refreshToken', refreshToken);
-		setAccessToken(accessToken);
+		setAccessToken(newAccessToken);
 		setActivationStatus('unknown');
 		setOrgName(null);
 		localStorage.removeItem('orgName');
@@ -327,9 +284,9 @@ export const App: React.FC = () => {
 		setOrgContextName(null);
 		localStorage.removeItem('orgContextId');
 		localStorage.removeItem('orgContextName');
-		// Decode JWT to get orgId
+		setActiveBrand('', '');
 		try {
-			const payload = JSON.parse(atob(accessToken.split('.')[1]));
+			const payload = JSON.parse(atob(newAccessToken.split('.')[1]));
 			setOrgId(payload.orgId);
 			setRole(payload.role || null);
 		} catch (e) {
@@ -337,9 +294,7 @@ export const App: React.FC = () => {
 		}
 	};
 
-	const handleLogout = () => {
-		clearAuthState();
-	};
+	const handleLogout = () => clearAuthState();
 
 	const enterOrgContext = (id: string, name?: string | null) => {
 		setOrgContextId(id);
@@ -359,42 +314,22 @@ export const App: React.FC = () => {
 		setOrgContextName(null);
 		localStorage.removeItem('orgContextId');
 		localStorage.removeItem('orgContextName');
+		setActiveBrand('', '');
 		setCurrentView('settings');
 	};
 
-	// Show login if no token
-	if (!accessToken) {
-		return <AuthScreen apiBaseUrl={API_BASE_URL} onAuthSuccess={handleLoginSuccess} />;
-	}
+	if (!accessToken) return <AuthScreen apiBaseUrl={API_BASE_URL} onAuthSuccess={handleLoginSuccess} />;
+	if (!role) return <div>Initializing...</div>;
+	if (!deviceId) return <div>Initializing...</div>;
+	if (role === 'super_admin' && !orgContextId) return <PlatformDashboard apiClient={apiClient} onEnterOrg={enterOrgContext} />;
 
-	if (!role) {
-		return <div>Initializing...</div>;
-	}
-
-	if (!deviceId) {
-		return <div>Initializing...</div>;
-	}
-
-	if (role === 'super_admin' && !orgContextId) {
-		return (
-			<PlatformDashboard
-				apiClient={apiClient}
-				onEnterOrg={enterOrgContext}
-			/>
-		);
-	}
-
-	// Super admins don't need license activation
 	if (role !== 'super_admin' && activationStatus !== 'active') {
-		if (!apiClient) {
-			return <div>Initializing...</div>;
-		}
+		if (!apiClient) return <div>Initializing...</div>;
 		return (
 			<ActivationScreen
 				deviceId={deviceId}
 				apiClient={apiClient}
 				onActivated={(info) => {
-					// setActivationInfo(info);
 					localStorage.setItem('licenseActivation', JSON.stringify(info));
 					setActivationStatus('active');
 				}}
@@ -402,74 +337,57 @@ export const App: React.FC = () => {
 		);
 	}
 
-	if (!apiClient) {
-		return <div>Initializing...</div>;
-	}
+	if (!apiClient) return <div>Initializing...</div>;
+	const shouldForceBrands = role !== 'super_admin' && !activeBrandId;
 
 	return (
 		<div className="app-container">
 			<nav className="app-nav">
 				<div className="nav-left">
-					{role === 'super_admin' && orgContextId && (
-						<button
-							onClick={exitOrgContext}
-							className="exit-org-btn"
-						>
-							Exit Org Context
-						</button>
-					)}
-					{role === 'super_admin' && orgContextId && (
-						<span className="org-context-span">
-							Org: {orgContextName || orgContextId}
-						</span>
-					)}
-					<button
-						onClick={() => setCurrentView('inbox')}
-						className={`nav-btn ${currentView === 'inbox' ? 'active' : ''}`}
-					>
-						💬 Inbox
-					</button>
-					<button
-						onClick={() => setCurrentView('campaigns')}
-						className={`nav-btn ${currentView === 'campaigns' ? 'active' : ''}`}
-					>
-						📢 Campaigns
-					</button>
-					<button
-						onClick={() => setCurrentView('templates')}
-						className={`nav-btn ${currentView === 'templates' ? 'active' : ''}`}
-					>
-						🧩 Templates
-					</button>
-					<button
-						onClick={() => setCurrentView('settings')}
-						className={`nav-btn ${currentView === 'settings' ? 'active' : ''}`}
-					>
-						⚙️ Settings
-					</button>
+					{role === 'super_admin' && orgContextId && <button onClick={exitOrgContext} className="exit-org-btn">Exit Org Context</button>}
+					{role === 'super_admin' && orgContextId && <span className="org-context-span">Org: {orgContextName || orgContextId}</span>}
+					{activeBrandId && <span className="org-context-span">Brand: {activeBrandName || activeBrandId}</span>}
+					<button onClick={() => setCurrentView('brands')} className={`nav-btn ${currentView === 'brands' ? 'active' : ''}`}>🏷️ Brands</button>
+					<button onClick={() => setCurrentView('inbox')} className={`nav-btn ${currentView === 'inbox' ? 'active' : ''}`}>💬 Inbox</button>
+					<button onClick={() => setCurrentView('campaigns')} className={`nav-btn ${currentView === 'campaigns' ? 'active' : ''}`}>📢 Campaigns</button>
+					<button onClick={() => setCurrentView('templates')} className={`nav-btn ${currentView === 'templates' ? 'active' : ''}`}>🧩 Templates</button>
+					<button onClick={() => setCurrentView('settings')} className={`nav-btn ${currentView === 'settings' ? 'active' : ''}`}>⚙️ Settings</button>
 				</div>
-				<button
-					onClick={handleLogout}
-					className="logout-btn"
-				>
-					🚪 Logout
-				</button>
+				<button onClick={handleLogout} className="logout-btn">🚪 Logout</button>
 			</nav>
 			<div className="main-content">
-				{currentView === 'inbox' && <InboxContainer apiClient={apiClient} wsClient={wsClient} />}
-				{currentView === 'campaigns' && <CampaignContainer apiClient={apiClient} wsClient={wsClient} />}
-				{currentView === 'templates' && <TemplatesPage apiClient={apiClient} />}
-				{currentView === 'settings' && (
+				{(shouldForceBrands || currentView === 'brands') && (
+					<ManageBrandsPage
+						apiClient={apiClient}
+						activeBrandId={activeBrandId}
+						onSetActiveBrand={(brandId, brandName) => setActiveBrand(brandId, brandName)}
+						onCreateBrand={() => setCurrentView('brand-create')}
+						onOpenWhatsAppSetup={(brandId) => {
+							setSetupBrandId(brandId);
+							setCurrentView('brand-whatsapp-setup');
+						}}
+					/>
+				)}
+				{currentView === 'brand-create' && (
+					<BrandCreatePage
+						apiClient={apiClient}
+						onCreated={(brandId, brandName) => {
+							setActiveBrand(brandId, brandName);
+							setSetupBrandId(brandId);
+							setCurrentView('brand-whatsapp-setup');
+						}}
+					/>
+				)}
+				{currentView === 'brand-whatsapp-setup' && setupBrandId && <BrandWhatsAppSetupPage apiClient={apiClient} brandId={setupBrandId} />}
+				{!shouldForceBrands && currentView === 'inbox' && <InboxContainer apiClient={apiClient} wsClient={wsClient} />}
+				{!shouldForceBrands && currentView === 'campaigns' && <CampaignContainer apiClient={apiClient} wsClient={wsClient} />}
+				{!shouldForceBrands && currentView === 'templates' && <TemplatesPage apiClient={apiClient} />}
+				{!shouldForceBrands && currentView === 'settings' && (
 					<div className="settings-container">
-					<div className={`role-card ${role === 'admin' ? 'admin' : ''}`}>
+						<div className={`role-card ${role === 'admin' ? 'admin' : ''}`}>
 							Role: {role || 'unknown'} | Org: {orgName || orgId || 'unknown'}
-							{orgName && orgId && (
-								<span className={`role-id ${role === 'admin' ? 'admin' : ''}`}>
-									 (id: {orgId})
-								</span>
-							)}
+							{orgName && orgId && <span className={`role-id ${role === 'admin' ? 'admin' : ''}`}> (id: {orgId})</span>}
 						</div>
-						<WhatsAppConnection apiClient={apiClient} orgId={orgId} />
 						{role === 'admin' && <LicenseManagement apiClient={apiClient} />}
 						{role === 'admin' && <UserManagement apiClient={apiClient} />}
 						{role === 'admin' && <SystemMonitoring apiClient={apiClient} />}
@@ -479,4 +397,3 @@ export const App: React.FC = () => {
 		</div>
 	);
 };
-

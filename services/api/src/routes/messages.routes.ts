@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
+import { requireBrandContext } from "../middleware/brandContext.js";
 import { db } from "../db/index.js";
 import { broadcastToOrg } from "../websocket/hub.js";
 import { sendMessage } from "../services/messageService.js";
@@ -18,8 +19,9 @@ export const messagesRouter = Router();
  * 
  * Phase 4.8+: UI will be added with template selection
  */
-messagesRouter.post("/send", requireAuth, async (req, res) => {
+messagesRouter.post("/send", requireAuth, requireBrandContext, async (req, res) => {
 	const orgId = req.auth!.orgId;
+	const brandId = req.brandId!;
 	const { contactId, templateId, variables, messageBody, mediaUrl } = req.body as {
 		contactId?: string;
 		templateId?: string;
@@ -40,8 +42,8 @@ messagesRouter.post("/send", requireAuth, async (req, res) => {
 	try {
 		// Get contact
 		const contactResult = await db.query(
-			"SELECT phone_e164, id FROM contacts WHERE id = $1 AND org_id = $2",
-			[contactId, orgId]
+			"SELECT phone_e164, id FROM contacts WHERE id = $1 AND org_id = $2 AND brand_id = $3",
+			[contactId, orgId, brandId]
 		);
 		if (contactResult.rowCount === 0) {
 			return res.status(404).json({ error: "Contact not found" });
@@ -50,8 +52,8 @@ messagesRouter.post("/send", requireAuth, async (req, res) => {
 
 		// Get or create conversation
 		const conversationResult = await db.query(
-			"INSERT INTO conversations (org_id, contact_id, last_message_at) VALUES ($1, $2, now()) ON CONFLICT (org_id, contact_id) DO UPDATE SET last_message_at = now() RETURNING id",
-			[orgId, contactId]
+			"INSERT INTO conversations (org_id, brand_id, contact_id, last_message_at) VALUES ($1, $2, $3, now()) ON CONFLICT (org_id, brand_id, contact_id) DO UPDATE SET last_message_at = now() RETURNING id",
+			[orgId, brandId, contactId]
 		);
 		const conversationId = conversationResult.rows[0].id;
 
@@ -63,8 +65,8 @@ messagesRouter.post("/send", requireAuth, async (req, res) => {
 
 		// Get WhatsApp account
 		const accountResult = await db.query(
-			"SELECT phone_number_id FROM whatsapp_accounts WHERE org_id = $1 AND is_active = true ORDER BY created_at ASC LIMIT 1",
-			[orgId]
+			"SELECT phone_number_id FROM whatsapp_connections WHERE brand_id = $1 ORDER BY created_at DESC LIMIT 1",
+			[brandId]
 		);
 		if (accountResult.rowCount === 0) {
 			return res.status(400).json({ error: "No WhatsApp account configured for org" });
@@ -74,6 +76,7 @@ messagesRouter.post("/send", requireAuth, async (req, res) => {
 		// Phase 4.7: Use messageService to validate and prepare message
 		const sendResult = await sendMessage({
 			orgId,
+			brandId,
 			contactId,
 			conversationId,
 			phoneNumberId,

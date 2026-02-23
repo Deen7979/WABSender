@@ -4,7 +4,6 @@ dotenv.config();
 
 const required = [
 	"DATABASE_URL",
-	"WHATSAPP_TOKEN",
 	"WHATSAPP_WEBHOOK_VERIFY_TOKEN",
 	"GRAPH_API_VERSION",
 	"JWT_SECRET",
@@ -24,7 +23,6 @@ for (const key of required) {
 export const config = {
 	port: Number(process.env.PORT || 4000),
 	databaseUrl: process.env.DATABASE_URL as string,
-	whatsappToken: process.env.WHATSAPP_TOKEN as string,
 	whatsappWebhookVerifyToken: process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN as string,
 	graphApiVersion: process.env.GRAPH_API_VERSION as string,
 	jwtSecret: process.env.JWT_SECRET as string,

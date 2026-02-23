@@ -30,6 +30,7 @@ Date: 2026-02-22
 - Build backend: `cd services/api && npm run build`
 - Build desktop: `cd apps/desktop && npm run build`
 - Publish desktop artifacts: `cd apps/desktop && npm run dist:publish`
+- Hardened publish with retry + verification: `cd apps/desktop && GH_TOKEN=<token> npm run release:publish:verified`
 
 ## Notes
 - This release includes subscription lifecycle support used by admin workflows (issue, activate, heartbeat, renew, revoke).

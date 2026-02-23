@@ -1,21 +1,24 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
+import { requireBrandContext } from "../middleware/brandContext.js";
 import { db } from "../db/index.js";
 import { auditMiddleware, AuditAction, ResourceType } from "../middleware/auditLog.js";
 
 export const campaignsRouter = Router();
 
-campaignsRouter.get("/", requireAuth, async (req, res) => {
+campaignsRouter.get("/", requireAuth, requireBrandContext, async (req, res) => {
   const orgId = req.auth!.orgId;
+  const brandId = req.brandId!;
   const result = await db.query(
-    "SELECT id, name, template_id, scheduled_at, status, created_at FROM campaigns WHERE org_id = $1 ORDER BY created_at DESC",
-    [orgId]
+    "SELECT id, name, template_id, scheduled_at, status, created_at FROM campaigns WHERE org_id = $1 AND brand_id = $2 ORDER BY created_at DESC",
+    [orgId, brandId]
   );
   return res.json(result.rows);
 });
 
-campaignsRouter.post("/", requireAuth, auditMiddleware(AuditAction.CAMPAIGN_CREATED, ResourceType.CAMPAIGN), async (req, res) => {
+campaignsRouter.post("/", requireAuth, requireBrandContext, auditMiddleware(AuditAction.CAMPAIGN_CREATED, ResourceType.CAMPAIGN), async (req, res) => {
   const orgId = req.auth!.orgId;
+  const brandId = req.brandId!;
   const { name, templateId, recipients } = req.body as {
     name?: string;
     templateId?: string;
@@ -27,8 +30,8 @@ campaignsRouter.post("/", requireAuth, auditMiddleware(AuditAction.CAMPAIGN_CREA
   }
 
   const campaignResult = await db.query(
-    "INSERT INTO campaigns (org_id, name, template_id, status) VALUES ($1, $2, $3, 'draft') RETURNING id",
-    [orgId, name, templateId]
+    "INSERT INTO campaigns (org_id, brand_id, name, template_id, status) VALUES ($1, $2, $3, $4, 'draft') RETURNING id",
+    [orgId, brandId, name, templateId]
   );
   const campaignId = campaignResult.rows[0].id;
 
@@ -39,8 +42,8 @@ campaignsRouter.post("/", requireAuth, auditMiddleware(AuditAction.CAMPAIGN_CREA
 
   for (const recipient of uniqueRecipients) {
     const contact = await db.query(
-      "SELECT phone_e164 FROM contacts WHERE id = $1 AND org_id = $2",
-      [recipient.contactId, orgId]
+      "SELECT phone_e164 FROM contacts WHERE id = $1 AND org_id = $2 AND brand_id = $3",
+      [recipient.contactId, orgId, brandId]
     );
     if (contact.rowCount === 0) {
       continue; // Skip invalid contact
@@ -55,8 +58,9 @@ campaignsRouter.post("/", requireAuth, auditMiddleware(AuditAction.CAMPAIGN_CREA
   return res.json({ id: campaignId });
 });
 
-campaignsRouter.post("/:id/schedule", requireAuth, auditMiddleware(AuditAction.CAMPAIGN_SCHEDULED, ResourceType.CAMPAIGN), async (req, res) => {
+campaignsRouter.post("/:id/schedule", requireAuth, requireBrandContext, auditMiddleware(AuditAction.CAMPAIGN_SCHEDULED, ResourceType.CAMPAIGN), async (req, res) => {
   const orgId = req.auth!.orgId;
+  const brandId = req.brandId!;
   const campaignId = req.params.id;
   const { scheduledAt, idempotencyKey, whatsappAccountId } = req.body as {
     scheduledAt?: string;
@@ -69,16 +73,16 @@ campaignsRouter.post("/:id/schedule", requireAuth, auditMiddleware(AuditAction.C
   }
 
   const campaign = await db.query(
-    "SELECT id FROM campaigns WHERE id = $1 AND org_id = $2",
-    [campaignId, orgId]
+    "SELECT id FROM campaigns WHERE id = $1 AND org_id = $2 AND brand_id = $3",
+    [campaignId, orgId, brandId]
   );
   if (campaign.rowCount === 0) {
     return res.status(404).json({ error: "Campaign not found" });
   }
 
   const insertRun = await db.query(
-    "INSERT INTO campaign_runs (campaign_id, org_id, whatsapp_account_id, scheduled_at, status, idempotency_key) VALUES ($1, $2, $3, $4, 'scheduled', $5) ON CONFLICT (idempotency_key) DO NOTHING RETURNING id",
-    [campaignId, orgId, whatsappAccountId, scheduledAt, idempotencyKey]
+    "INSERT INTO campaign_runs (campaign_id, org_id, brand_id, whatsapp_account_id, scheduled_at, status, idempotency_key) VALUES ($1, $2, $3, $4, $5, 'scheduled', $6) ON CONFLICT (idempotency_key) DO NOTHING RETURNING id",
+    [campaignId, orgId, brandId, whatsappAccountId, scheduledAt, idempotencyKey]
   );
 
   const runId = insertRun.rowCount
@@ -93,13 +97,14 @@ campaignsRouter.post("/:id/schedule", requireAuth, auditMiddleware(AuditAction.C
   return res.json({ runId });
 });
 
-campaignsRouter.post("/:id/pause", requireAuth, auditMiddleware(AuditAction.CAMPAIGN_PAUSED, ResourceType.CAMPAIGN), async (req, res) => {
+campaignsRouter.post("/:id/pause", requireAuth, requireBrandContext, auditMiddleware(AuditAction.CAMPAIGN_PAUSED, ResourceType.CAMPAIGN), async (req, res) => {
   const orgId = req.auth!.orgId;
+  const brandId = req.brandId!;
   const campaignId = req.params.id;
 
   const result = await db.query(
-    "UPDATE campaigns SET status = 'paused' WHERE id = $1 AND org_id = $2 RETURNING id",
-    [campaignId, orgId]
+    "UPDATE campaigns SET status = 'paused' WHERE id = $1 AND org_id = $2 AND brand_id = $3 RETURNING id",
+    [campaignId, orgId, brandId]
   );
   if (result.rowCount === 0) {
     return res.status(404).json({ error: "Campaign not found" });
@@ -108,13 +113,14 @@ campaignsRouter.post("/:id/pause", requireAuth, auditMiddleware(AuditAction.CAMP
   return res.json({ id: campaignId, status: "paused" });
 });
 
-campaignsRouter.post("/:id/resume", requireAuth, auditMiddleware(AuditAction.CAMPAIGN_RESUMED, ResourceType.CAMPAIGN), async (req, res) => {
+campaignsRouter.post("/:id/resume", requireAuth, requireBrandContext, auditMiddleware(AuditAction.CAMPAIGN_RESUMED, ResourceType.CAMPAIGN), async (req, res) => {
   const orgId = req.auth!.orgId;
+  const brandId = req.brandId!;
   const campaignId = req.params.id;
 
   const result = await db.query(
-    "UPDATE campaigns SET status = 'scheduled' WHERE id = $1 AND org_id = $2 RETURNING id",
-    [campaignId, orgId]
+    "UPDATE campaigns SET status = 'scheduled' WHERE id = $1 AND org_id = $2 AND brand_id = $3 RETURNING id",
+    [campaignId, orgId, brandId]
   );
   if (result.rowCount === 0) {
     return res.status(404).json({ error: "Campaign not found" });
@@ -123,13 +129,14 @@ campaignsRouter.post("/:id/resume", requireAuth, auditMiddleware(AuditAction.CAM
   return res.json({ id: campaignId, status: "scheduled" });
 });
 
-campaignsRouter.get("/:id/stats", requireAuth, async (req, res) => {
+campaignsRouter.get("/:id/stats", requireAuth, requireBrandContext, async (req, res) => {
   const orgId = req.auth!.orgId;
+  const brandId = req.brandId!;
   const campaignId = req.params.id;
 
   const campaign = await db.query(
-    "SELECT id FROM campaigns WHERE id = $1 AND org_id = $2",
-    [campaignId, orgId]
+    "SELECT id FROM campaigns WHERE id = $1 AND org_id = $2 AND brand_id = $3",
+    [campaignId, orgId, brandId]
   );
   if (campaign.rowCount === 0) {
     return res.status(404).json({ error: "Campaign not found" });

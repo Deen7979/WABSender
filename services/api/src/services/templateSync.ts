@@ -1,351 +1,201 @@
-/**
- * WhatsApp Template Synchronization
- * 
- * Fetches approved message templates from Meta Graph API
- * Parses components and stores in local database
- * Only APPROVED templates are exposed to campaigns
- */
-
 import { db } from "../db/index.js";
 import { config } from "../config/index.js";
 import { decryptToken } from "../utils/encryption.js";
 import { logger } from "../utils/logger.js";
-import { updateTemplateSyncStatus } from "./webhookHealth.js";
+
+type SyncStatus = "pending" | "syncing" | "success" | "error";
 
 interface MetaTemplate {
-	name?: string;
-	language?: string;
-	status?: string;
-	category?: string;
-	components?: Array<{
-		type: string;
-		format?: string;
-		text?: string;
-		buttons?: Array<any>;
-		body?: any;
-		header?: any;
-		footer?: any;
-	}>;
-	id?: string;
+  name?: string;
+  language?: string;
+  status?: string;
+  category?: string;
+  components?: unknown[];
+  id?: string;
 }
 
-interface TemplateComponent {
-	type: "HEADER" | "BODY" | "FOOTER" | "BUTTONS";
-	format?: "TEXT" | "IMAGE" | "DOCUMENT" | "VIDEO";
-	text?: string;
-	buttons?: Array<{
-		type: string;
-		text: string;
-		url?: string;
-		phone_number?: string;
-	}>;
-}
+const allowedStatuses = new Set(["APPROVED", "ACTIVE", "QUALITY_PENDING"]);
 
-/**
- * Sync templates from Meta for an organization
- * Called after successful OAuth connection
- */
-export const syncTemplatesForOrg = async (orgId: string, wabaId: string): Promise<number> => {
-	try {
-		// Mark sync as in progress
-		await updateTemplateSyncStatus(orgId, "syncing", 0, null);
-
-		// Get active WhatsApp account for this org
-		const accountResult = await db.query(
-			"SELECT access_token FROM whatsapp_accounts WHERE org_id = $1 AND is_active = true LIMIT 1",
-			[orgId]
-		);
-
-		if (accountResult.rowCount === 0) {
-			await updateTemplateSyncStatus(orgId, "error", 0, "No active WhatsApp account found");
-			throw new Error("No active WhatsApp account found");
-		}
-
-		const { access_token: encryptedToken } = accountResult.rows[0];
-		const accessToken = decryptToken(encryptedToken);
-
-		const templatesUrl = `https://graph.facebook.com/${config.graphApiVersion}/${wabaId}/message_templates`;
-		const initialUrl = new URL(templatesUrl);
-		initialUrl.searchParams.set("access_token", accessToken);
-		initialUrl.searchParams.set(
-			"fields",
-			"name,status,category,language,components,id"
-		);
-		initialUrl.searchParams.set("limit", "200");
-		logger.info("Fetching templates from Meta", { wabaId, url: templatesUrl });
-
-		const allowedStatuses = new Set(["APPROVED", "ACTIVE", "QUALITY_PENDING"]);
-		const templates: MetaTemplate[] = [];
-		let nextUrl: string | null = initialUrl.toString();
-		let page = 0;
-
-		while (nextUrl) {
-			page += 1;
-			const controller = new AbortController();
-			const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
-			let response;
-			try {
-				response = await fetch(nextUrl, { signal: controller.signal });
-				clearTimeout(timeoutId);
-			} catch (err: any) {
-				clearTimeout(timeoutId);
-				if (err.name === "AbortError") {
-					const timeoutError = `Template sync timeout (10s) on page ${page}`;
-					await updateTemplateSyncStatus(orgId, "error", 0, timeoutError);
-					throw new Error(timeoutError);
-				}
-				throw err;
-			}
-
-			if (!response.ok) {
-				const errorText = await response.text();
-				let errorDetail = "";
-				try {
-					const parsed = JSON.parse(errorText) as { error?: { message?: string } };
-					errorDetail = parsed.error?.message || "";
-				} catch {
-					errorDetail = errorText;
-				}
-				logger.error("Meta API returned error", {
-					status: response.status,
-					statusText: response.statusText,
-					errorBody: errorText.slice(0, 500)
-				});
-				const error = `Meta API error: ${response.status} ${response.statusText}${errorDetail ? ` - ${errorDetail}` : ""}`;
-				await updateTemplateSyncStatus(orgId, "error", 0, error);
-				throw new Error(error);
-			}
-
-			const data = (await response.json()) as {
-				data?: MetaTemplate[];
-				paging?: { next?: string };
-				error?: unknown;
-			};
-
-			if (data.error) {
-				const errorMsg = JSON.stringify(data.error);
-				logger.error("Meta API returned error in response", { errorMsg });
-				await updateTemplateSyncStatus(orgId, "error", 0, errorMsg);
-				throw new Error(errorMsg);
-			}
-
-			const pageTemplates = data.data || [];
-			templates.push(...pageTemplates);
-
-			logger.info("Meta template sync page", {
-				wabaId,
-				page,
-				pageCount: pageTemplates.length,
-				hasNext: Boolean(data.paging?.next)
-			});
-
-			nextUrl = data.paging?.next || null;
-		}
-
-		// Process each template
-		let insertedCount = 0;
-		let updatedCount = 0;
-
-		for (const template of templates) {
-			const normalizedStatus = (template.status || "").toUpperCase();
-
-			// Only process approved/active templates
-			if (!allowedStatuses.has(normalizedStatus)) {
-				logger.debug(`Skipping template: ${template.name || "unknown"} (${template.status || "unknown"})`);
-				continue;
-			}
-
-			const name = template.name?.trim();
-			if (!name) {
-				logger.warn("Skipping template with missing name", { status: template.status });
-				continue;
-			}
-
-			const language = (template.language && template.language.trim()) || "und";
-			const metaTemplateId = template.id || `${name}:${language}`;
-			const category = template.category || "UNKNOWN";
-
-			try {
-				// Parse components
-				const components = parseComponents(template.components || []);
-
-				// Upsert template
-				const templateResult = await db.query(
-					`INSERT INTO templates (
-						org_id, meta_template_id, name, language, category, 
-						components, status, updated_at
-					) VALUES ($1, $2, $3, $4, $5, $6, $7, now())
-					ON CONFLICT (org_id, name, language) 
-					DO UPDATE SET
-						name = EXCLUDED.name,
-						language = EXCLUDED.language,
-						category = EXCLUDED.category,
-						components = EXCLUDED.components,
-						status = EXCLUDED.status,
-						updated_at = now()
-					RETURNING id`,
-					[
-						orgId,
-						metaTemplateId,
-						name,
-						language,
-						category,
-						JSON.stringify(components),
-						template.status || "UNKNOWN"
-					]
-				);
-
-				if (templateResult.rowCount && templateResult.rowCount > 0) {
-					insertedCount++;
-				} else {
-					updatedCount++;
-				}
-			} catch (err: any) {
-				logger.warn("Failed to sync template", {
-					templateName: template.name,
-					error: err.message
-				});
-			}
-		}
-
-		const totalSynced = insertedCount + updatedCount;
-
-		logger.info("Template sync completed", {
-			wabaId,
-			inserted: insertedCount,
-			updated: updatedCount
-		});
-
-		// Mark sync as successful
-		await updateTemplateSyncStatus(orgId, "success", totalSynced, null);
-
-		return totalSynced;
-	} catch (error: any) {
-		logger.error("Template sync failed", {
-			error: error.message,
-			orgId,
-			wabaId
-		});
-		throw error;
-	}
+const updateSyncStatus = async (
+  brandId: string,
+  status: SyncStatus,
+  approvedCount = 0,
+  totalCount = 0,
+  error: string | null = null
+) => {
+  await db.query(
+    `INSERT INTO template_sync_status (brand_id, sync_status, last_sync_time, approved_count, total_count, error, updated_at)
+     VALUES ($1, $2, CASE WHEN $2 = 'success' THEN now() ELSE NULL END, $3, $4, $5, now())
+     ON CONFLICT (brand_id)
+     DO UPDATE SET
+       sync_status = EXCLUDED.sync_status,
+       last_sync_time = CASE WHEN EXCLUDED.sync_status = 'success' THEN now() ELSE template_sync_status.last_sync_time END,
+       approved_count = EXCLUDED.approved_count,
+       total_count = EXCLUDED.total_count,
+       error = EXCLUDED.error,
+       updated_at = now()`,
+    [brandId, status, approvedCount, totalCount, error]
+  );
 };
 
-/**
- * Parse Meta template components into a more usable format
- */
-function parseComponents(components: any[]): TemplateComponent[] {
-	return components
-		.map((component) => {
-			if (component.type === "HEADER") {
-				return {
-					type: "HEADER",
-					format: component.format || "TEXT",
-					text: component.text
-				};
-			}
+export const syncTemplatesForBrand = async (orgId: string, brandId: string, wabaId: string): Promise<number> => {
+  await updateSyncStatus(brandId, "syncing", 0, 0, null);
 
-			if (component.type === "BODY") {
-				return {
-					type: "BODY",
-					text: component.text
-				};
-			}
+  const connectionResult = await db.query(
+    `SELECT access_token
+     FROM whatsapp_connections
+     WHERE brand_id = $1
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [brandId]
+  );
 
-			if (component.type === "FOOTER") {
-				return {
-					type: "FOOTER",
-					text: component.text
-				};
-			}
+  if ((connectionResult.rowCount ?? 0) === 0) {
+    await updateSyncStatus(brandId, "error", 0, 0, "No active WhatsApp connection found");
+    throw new Error("No active WhatsApp connection found");
+  }
 
-			if (component.type === "BUTTONS") {
-				return {
-					type: "BUTTONS",
-					buttons: (component.buttons || []).map((btn: any) => ({
-						type: btn.type,
-						text: btn.text,
-						url: btn.url,
-						phone_number: btn.phone_number
-					}))
-				};
-			}
+  const accessToken = decryptToken(connectionResult.rows[0].access_token);
+  const templates: MetaTemplate[] = [];
 
-			return null;
-		})
-		.filter((c) => c !== null) as TemplateComponent[];
-}
+  let nextUrl: string | null = `https://graph.facebook.com/${config.graphApiVersion}/${wabaId}/message_templates?access_token=${encodeURIComponent(accessToken)}&fields=name,status,category,language,components,id&limit=200`;
 
-/**
- * Get all APPROVED templates for an organization
- * Exposed to campaigns UI
- */
-export const getApprovedTemplates = async (
-	orgId: string
-): Promise<Array<{ id: string; name: string; language: string; category: string; components: TemplateComponent[] }>> => {
-	try {
-		const result = await db.query(
-			`SELECT id, name, language, category, components 
-			 FROM templates 
-			 WHERE org_id = $1 AND status IN ('APPROVED', 'ACTIVE', 'QUALITY_PENDING')
-			 ORDER BY name ASC`,
-			[orgId]
-		);
+  while (nextUrl) {
+    const response = await fetch(nextUrl);
+    if (!response.ok) {
+      const text = await response.text();
+      await updateSyncStatus(brandId, "error", 0, 0, text.slice(0, 500));
+      throw new Error(`Meta API error: ${response.status} ${text}`);
+    }
 
-		return result.rows.map((row) => ({
-			id: row.id,
-			name: row.name,
-			language: row.language,
-			category: row.category,
-			components: Array.isArray(row.components) ? row.components : JSON.parse(row.components || "[]")
-		}));
-	} catch (error: any) {
-		logger.error("Failed to get approved templates", {
-			error: error.message,
-			orgId
-		});
-		throw error;
-	}
+    const data = (await response.json()) as { data?: MetaTemplate[]; paging?: { next?: string } };
+    templates.push(...(data.data || []));
+    nextUrl = data.paging?.next || null;
+  }
+
+  let approvedCount = 0;
+
+  for (const template of templates) {
+    const normalizedStatus = (template.status || "").toUpperCase();
+    if (!allowedStatuses.has(normalizedStatus)) {
+      continue;
+    }
+
+    const name = template.name?.trim();
+    if (!name) {
+      continue;
+    }
+
+    approvedCount += 1;
+
+    await db.query(
+      `INSERT INTO templates (org_id, brand_id, meta_template_id, name, language, category, components, status, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,now())
+       ON CONFLICT (org_id, brand_id, name, language)
+       DO UPDATE SET
+         meta_template_id = EXCLUDED.meta_template_id,
+         category = EXCLUDED.category,
+         components = EXCLUDED.components,
+         status = EXCLUDED.status,
+         updated_at = now()`,
+      [
+        orgId,
+        brandId,
+        template.id || `${name}:${template.language || "und"}`,
+        name,
+        template.language || "und",
+        template.category || "UNKNOWN",
+        JSON.stringify(template.components || []),
+        template.status || "UNKNOWN",
+      ]
+    );
+  }
+
+  await updateSyncStatus(brandId, "success", approvedCount, templates.length, null);
+  logger.info("Brand template sync complete", { brandId, approvedCount, totalCount: templates.length });
+  return approvedCount;
 };
 
-/**
- * Manually trigger template sync (called via API endpoint)
- */
-export const manualSyncTemplates = async (
-	orgId: string
+export const manualSyncTemplatesForBrand = async (
+  orgId: string,
+  brandId: string
 ): Promise<{ success: boolean; count: number; message: string }> => {
-	try {
-		// Get WABA ID from active account
-		const accountResult = await db.query(
-			"SELECT waba_id FROM whatsapp_accounts WHERE org_id = $1 AND is_active = true LIMIT 1",
-			[orgId]
-		);
+  try {
+    const accountResult = await db.query(
+      `SELECT waba_id
+       FROM whatsapp_connections
+       WHERE brand_id = $1
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [brandId]
+    );
 
-		if (accountResult.rowCount === 0) {
-			return {
-				success: false,
-				count: 0,
-				message: "No active WhatsApp account connected"
-			};
-		}
+    if ((accountResult.rowCount ?? 0) === 0) {
+      return { success: false, count: 0, message: "No active WhatsApp connection connected" };
+    }
 
-		const { waba_id } = accountResult.rows[0];
-		const count = await syncTemplatesForOrg(orgId, waba_id);
+    const count = await syncTemplatesForBrand(orgId, brandId, accountResult.rows[0].waba_id);
+    return { success: true, count, message: `Synced ${count} templates` };
+  } catch (error: any) {
+    logger.error("Manual brand template sync failed", { brandId, error: error?.message });
+    return { success: false, count: 0, message: `Sync failed: ${error?.message || "unknown error"}` };
+  }
+};
 
-		return {
-			success: true,
-			count,
-			message: `Synced ${count} templates`
-		};
-	} catch (error: any) {
-		logger.error("Manual template sync failed", {
-			error: error.message,
-			orgId
-		});
-		return {
-			success: false,
-			count: 0,
-			message: `Sync failed: ${error.message}`
-		};
-	}
+export const getApprovedTemplates = async (orgId: string, brandId: string) => {
+  const result = await db.query(
+    `SELECT id, name, language, category, components
+     FROM templates
+     WHERE org_id = $1
+       AND brand_id = $2
+       AND status IN ('APPROVED', 'ACTIVE', 'QUALITY_PENDING')
+     ORDER BY name ASC`,
+    [orgId, brandId]
+  );
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    language: row.language,
+    category: row.category,
+    components: Array.isArray(row.components) ? row.components : JSON.parse(row.components || "[]"),
+  }));
+};
+
+export const manualSyncTemplates = async (orgId: string) => {
+  const brandResult = await db.query(
+    `SELECT id
+     FROM brands
+     WHERE org_id = $1
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [orgId]
+  );
+
+  if ((brandResult.rowCount ?? 0) === 0) {
+    return { success: false, count: 0, message: "No brands found" };
+  }
+
+  return manualSyncTemplatesForBrand(orgId, brandResult.rows[0].id);
+};
+
+export const syncTemplatesForOrg = async (orgId: string, _wabaId: string): Promise<number> => {
+  const brandResult = await db.query(
+    `SELECT id
+     FROM brands
+     WHERE org_id = $1
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [orgId]
+  );
+
+  if ((brandResult.rowCount ?? 0) === 0) {
+    return 0;
+  }
+
+  const result = await manualSyncTemplatesForBrand(orgId, brandResult.rows[0].id);
+  if (!result.success) {
+    throw new Error(result.message);
+  }
+  return result.count;
 };

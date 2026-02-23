@@ -5,13 +5,15 @@ import { subscriptionLicenseAPI } from "./subscriptionLicenseAPI";
 export const createApiClient = (
 	baseUrl: string,
 	getToken: () => string | null,
-	getOrgContextId?: () => string | null
+	getOrgContextId?: () => string | null,
+	getBrandContextId?: () => string | null
 ) => {
 	const getAuthToken = () => getToken() || localStorage.getItem("accessToken") || "";
 
 	const request = async <T>(path: string, options: RequestInit = {}): Promise<T> => {
 		const token = getToken() || localStorage.getItem("accessToken");
 		const orgContextId = getOrgContextId ? getOrgContextId() : null;
+		const brandContextId = getBrandContextId ? getBrandContextId() : null;
 		const headers: Record<string, string> = {
 			...(options.headers instanceof Headers 
 				? Object.fromEntries(options.headers.entries())
@@ -22,6 +24,9 @@ export const createApiClient = (
 		}
 		if (orgContextId) {
 			headers["X-Org-Id"] = orgContextId;
+		}
+		if (brandContextId) {
+			headers["X-Brand-Id"] = brandContextId;
 		}
 		const response = await fetch(`${baseUrl}${path}`, { 
 			...options, 
@@ -123,20 +128,28 @@ export const createApiClient = (
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ activationId })
 			}),
-		// Meta OAuth endpoints
-		initMetaOAuth: () =>
-			request("/auth/meta-oauth/init", {
-				method: "GET"
-			}),
-		getMetaOAuthStatus: () =>
-			request("/auth/meta-oauth/status", {
-				method: "GET"
-			}),
-		disconnectMetaOAuth: () =>
-			request("/auth/meta-oauth/disconnect", {
+		listBrands: (params?: { page?: number; pageSize?: number; search?: string }) =>
+			request(`/brands?page=${params?.page || 1}&pageSize=${params?.pageSize || 10}&search=${encodeURIComponent(params?.search || "")}`),
+		getBrand: (brandId: string) => request(`/brands/${brandId}`),
+		createBrand: (payload: FormData) =>
+			request("/brands/create", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" }
+				body: payload
 			}),
+		updateBrand: (brandId: string, payload: FormData) =>
+			request(`/brands/${brandId}`, {
+				method: "PUT",
+				body: payload
+			}),
+		deleteBrand: (brandId: string) =>
+			request(`/brands/${brandId}`, {
+				method: "DELETE"
+			}),
+		getBrandWhatsAppStatus: (brandId: string) => request(`/brands/${brandId}/whatsapp/status`),
+		initBrandWhatsApp: (brandId: string) => request(`/brands/${brandId}/whatsapp/init`),
+		disconnectBrandWhatsApp: (brandId: string) => request(`/brands/${brandId}/whatsapp/disconnect`, { method: "POST" }),
+		getBrandWebhookHealth: (brandId: string) => request(`/brands/${brandId}/whatsapp/webhook-health`),
+		syncBrandTemplates: (brandId: string) => request(`/brands/${brandId}/whatsapp/templates/sync`, { method: "POST" }),
 		get: (path: string) =>
 			request(path, { method: "GET" }),
 		post: (path: string, body: any) =>
@@ -161,13 +174,6 @@ export const createApiClient = (
 			}),
 		createOptInEvent: (payload: { contactId: string; eventType: "opt_in" | "opt_out"; source: string }) =>
 			request("/opt-in", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(payload)
-			}),
-		listWhatsAppAccounts: () => request("/whatsapp-accounts"),
-		upsertWhatsAppAccount: (payload: { phoneNumberId: string; wabaId: string; displayPhoneNumber?: string; isActive?: boolean }) =>
-			request("/whatsapp-accounts", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(payload)

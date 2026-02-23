@@ -50,6 +50,10 @@ CSC_KEY_PASSWORD=your-password \
 GH_TOKEN=ghp_your-token-here \
 npm run dist:publish
 
+# Hardened publish with automatic verification and retry (recommended)
+GH_TOKEN=ghp_your-token-here \
+npm run release:publish:verified
+
 # Unsigned testing release (SmartScreen will show "Unknown Publisher")
 GH_TOKEN=ghp_your-token-here \
 npm run dist:publish
@@ -63,6 +67,19 @@ Electron Builder will upload:
 - `WABSender-Setup-<version>.exe.blockmap`
 
 These assets are required by `electron-updater` for Windows updates.
+
+### Automated Verification Output
+
+The hardened workflow writes a verification report to:
+
+- `apps/desktop/dist/installers/release-verification-<version>.json`
+
+The report includes:
+- Local artifact names, sizes, SHA-256 checksums
+- GitHub release metadata (tag, URL, draft/prerelease status)
+- Remote asset list from GitHub release API
+- Missing assets (if any)
+- Retry attempt history
 
 ## 4) Auto-Update Behavior (Windows)
 
@@ -90,7 +107,7 @@ For testing and early releases, unsigned builds are acceptable. Expect SmartScre
 1. Update version in [apps/desktop/package.json](../apps/desktop/package.json).
 2. Run tests and validate the app locally.
 3. Build installers and publish:
-   - `npm run dist:publish`
+   - `npm run release:publish:verified`
 4. Verify the GitHub Release:
    - Release is not a draft
    - Assets include `latest.yml` and `*.blockmap`

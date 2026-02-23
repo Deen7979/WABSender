@@ -21,14 +21,12 @@ webhooksRouter.get("/whatsapp", async (req, res) => {
 
 	if (mode === "subscribe" && token === config.whatsappWebhookVerifyToken) {
 		logger.info("Webhook verified");
-		// Mark webhook verified for all active orgs (verification is app-level)
+		// Mark webhook verified for all active brand connections (verification is app-level)
 		await db.query(
-			`INSERT INTO webhook_health (org_id, webhook_verified, last_webhook_timestamp, updated_at)
-			 SELECT org_id, true, now(), now()
-			 FROM whatsapp_accounts
-			 WHERE is_active = true
-			 ON CONFLICT (org_id)
-			 DO UPDATE SET webhook_verified = true, last_webhook_timestamp = now(), updated_at = now()`
+			`UPDATE whatsapp_connections
+			 SET webhook_verified = true,
+			     last_webhook_time = now(),
+			     updated_at = now()`
 		);
 		return res.status(200).send(challenge);
 	}
@@ -73,18 +71,23 @@ webhooksRouter.post("/whatsapp", async (req, res) => {
 			const statuses = (value["statuses"] as Array<Record<string, unknown>> | undefined) || [];
 
 			let orgId: string | null = null;
+			let brandId: string | null = null;
 			if (phoneNumberId) {
 				const accountResult = await db.query(
-					"SELECT org_id FROM whatsapp_accounts WHERE phone_number_id = $1 AND is_active = true",
+					`SELECT b.org_id, wc.brand_id
+					 FROM whatsapp_connections wc
+					 JOIN brands b ON b.id = wc.brand_id
+					 WHERE wc.phone_number_id = $1`,
 					[phoneNumberId]
 				);
 				if ((accountResult.rowCount ?? 0) > 0) {
 					orgId = accountResult.rows[0].org_id;
+					brandId = accountResult.rows[0].brand_id;
 				}
 			}
 
-			if (!orgId) {
-				logger.warn("Could not find org for phone number", { phoneNumberId });
+			if (!orgId || !brandId) {
+				logger.warn("Could not find brand/org for phone number", { phoneNumberId });
 				return;
 			}
 
@@ -98,8 +101,8 @@ webhooksRouter.post("/whatsapp", async (req, res) => {
 
 					// Get or create contact
 					const contactResult = await db.query(
-						"SELECT id, name FROM contacts WHERE phone_e164 = $1 AND org_id = $2",
-						[`+${from}`, orgId]
+						"SELECT id, name FROM contacts WHERE phone_e164 = $1 AND org_id = $2 AND brand_id = $3",
+						[`+${from}`, orgId, brandId]
 					);
 
 					let contactId: string;
@@ -109,8 +112,8 @@ webhooksRouter.post("/whatsapp", async (req, res) => {
 						contactName = contactResult.rows[0].name;
 					} else {
 						const insertedContact = await db.query(
-							"INSERT INTO contacts (org_id, phone_e164) VALUES ($1, $2) RETURNING id",
-							[orgId, `+${from}`]
+							"INSERT INTO contacts (org_id, brand_id, phone_e164) VALUES ($1, $2, $3) RETURNING id",
+							[orgId, brandId, `+${from}`]
 						);
 						contactId = insertedContact.rows[0].id;
 					}
@@ -126,8 +129,8 @@ webhooksRouter.post("/whatsapp", async (req, res) => {
 
 					// Create or update conversation (update last_message_at)
 					const conversationResult = await db.query(
-						"INSERT INTO conversations (org_id, contact_id, last_message_at) VALUES ($1, $2, now()) ON CONFLICT (org_id, contact_id) DO UPDATE SET last_message_at = now() RETURNING id",
-						[orgId, contactId]
+						"INSERT INTO conversations (org_id, brand_id, contact_id, last_message_at) VALUES ($1, $2, $3, now()) ON CONFLICT (org_id, brand_id, contact_id) DO UPDATE SET last_message_at = now() RETURNING id",
+						[orgId, brandId, contactId]
 					);
 					const conversationId = conversationResult.rows[0].id;
 
@@ -153,8 +156,8 @@ webhooksRouter.post("/whatsapp", async (req, res) => {
 
 					// Store inbound message
 					const inserted = await db.query(
-						"INSERT INTO messages (org_id, conversation_id, contact_id, direction, body, meta_message_id, status) VALUES ($1, $2, $3, 'inbound', $4, $5, 'received') RETURNING id",
-						[orgId, conversationId, contactId, text || null, messageId]
+						"INSERT INTO messages (org_id, brand_id, conversation_id, contact_id, direction, body, meta_message_id, status) VALUES ($1, $2, $3, $4, 'inbound', $5, $6, 'received') RETURNING id",
+						[orgId, brandId, conversationId, contactId, text || null, messageId]
 					);
 
 					// Check if within business hours
@@ -219,7 +222,7 @@ webhooksRouter.post("/whatsapp", async (req, res) => {
 					if (!metaMessageId || !statusValue) continue;
 
 					const msgResult = await db.query(
-						"SELECT id, org_id, contact_id, retention_policy FROM messages WHERE meta_message_id = $1",
+						"SELECT id, org_id, brand_id, contact_id, retention_policy FROM messages WHERE meta_message_id = $1",
 						[metaMessageId]
 					);
 					if (msgResult.rowCount === 0) continue;

@@ -1,12 +1,11 @@
 import bcrypt from "bcryptjs";
 import { db } from "../index.js";
+import { encryptToken } from "../../utils/encryption.js";
 
 const required = [
   "SEED_ORG_NAME",
   "SEED_ADMIN_EMAIL",
-  "SEED_ADMIN_PASSWORD",
-  "SEED_WABA_ID",
-  "SEED_PHONE_NUMBER_ID"
+  "SEED_ADMIN_PASSWORD"
 ];
 
 for (const key of required) {
@@ -19,9 +18,10 @@ const run = async () => {
   const orgName = process.env.SEED_ORG_NAME as string;
   const email = process.env.SEED_ADMIN_EMAIL as string;
   const password = process.env.SEED_ADMIN_PASSWORD as string;
-  const wabaId = process.env.SEED_WABA_ID as string;
-  const phoneNumberId = process.env.SEED_PHONE_NUMBER_ID as string;
+  const wabaId = process.env.SEED_WABA_ID || null;
+  const phoneNumberId = process.env.SEED_PHONE_NUMBER_ID || null;
   const displayPhone = process.env.SEED_DISPLAY_PHONE_NUMBER || null;
+  const seedAccessToken = process.env.SEED_WHATSAPP_ACCESS_TOKEN || null;
 
   const orgResult = await db.query(
     "INSERT INTO orgs (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id",
@@ -36,12 +36,31 @@ const run = async () => {
   );
   const userId = userResult.rows[0].id;
 
-  await db.query(
-    "INSERT INTO whatsapp_accounts (org_id, phone_number_id, waba_id, display_phone_number, is_active) VALUES ($1, $2, $3, $4, true) ON CONFLICT (org_id, phone_number_id) DO UPDATE SET waba_id = EXCLUDED.waba_id, display_phone_number = EXCLUDED.display_phone_number, is_active = true",
-    [orgId, phoneNumberId, wabaId, displayPhone]
+  const brandResult = await db.query(
+    `INSERT INTO brands (org_id, name, description, timezone, company_name, phone)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (org_id, lower(name)) DO UPDATE SET name = EXCLUDED.name
+     RETURNING id`,
+    [orgId, `${orgName} Brand`, 'Seeded brand', 'UTC', orgName, '+10000000000']
   );
+  const brandId = brandResult.rows[0].id;
 
-  return { orgId, userId };
+  if (wabaId && phoneNumberId && seedAccessToken) {
+    await db.query(
+      `INSERT INTO whatsapp_connections (brand_id, waba_id, phone_number_id, phone_number, access_token, token_expires_at)
+       VALUES ($1, $2, $3, $4, $5, now() + interval '60 days')
+       ON CONFLICT (brand_id, phone_number_id)
+       DO UPDATE SET
+         waba_id = EXCLUDED.waba_id,
+         phone_number = EXCLUDED.phone_number,
+         access_token = EXCLUDED.access_token,
+         token_expires_at = EXCLUDED.token_expires_at,
+         updated_at = now()`,
+      [brandId, wabaId, phoneNumberId, displayPhone, encryptToken(seedAccessToken)]
+    );
+  }
+
+  return { orgId, userId, brandId };
 };
 
 run()

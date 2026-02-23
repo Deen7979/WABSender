@@ -5,14 +5,12 @@ import { config } from "./config/index.js";
 import { attachWebSocket } from "./websocket/hub.js";
 import { logger } from "./utils/logger.js";
 import { authRouter } from "./routes/auth.routes.js";
-import { metaOAuthRouter } from "./routes/meta-oauth.routes.js";
 import { contactsRouter } from "./routes/contacts.routes.js";
 import { templatesRouter } from "./routes/templates.routes.js";
 import { campaignsRouter } from "./routes/campaigns.routes.js";
 import { messagesRouter } from "./routes/messages.routes.js";
 import { webhooksRouter } from "./routes/webhooks.routes.js";
 import { webhookStatusRouter } from "./routes/webhook-status.routes.js";
-import { whatsappAccountsRouter } from "./routes/whatsapp-accounts.routes.js";
 import { optInRouter } from "./routes/opt-in.routes.js";
 import { conversationsRouter } from "./routes/conversations.routes.js";
 import { automationsRouter } from "./routes/automations.routes.js";
@@ -24,6 +22,7 @@ import { subscriptionLicenseRouter } from "./routes/subscription-license.routes.
 import { orgsRouter } from "./routes/orgs.routes.js";
 import { platformRouter } from "./routes/platform.routes.js";
 import { platformLicenseRouter } from "./routes/platform-license.routes.js";
+import { brandsRouter } from "./routes/brands.routes.js";
 import usersRouter from "./routes/users.routes.js";
 import { startScheduler, stopScheduler } from "./jobs/campaignScheduler.js";
 import { startQueueWorker, stopQueueWorker } from "./jobs/queueWorker.js";
@@ -37,12 +36,11 @@ export const createServer = () => {
 	app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
 	app.use("/auth", authRouter);
-	app.use("/auth/meta-oauth", metaOAuthRouter);
 	app.use("/contacts", contactsRouter);
 	app.use("/templates", templatesRouter);
 	app.use("/campaigns", campaignsRouter);
 	app.use("/messages", messagesRouter);
-	app.use("/whatsapp-accounts", whatsappAccountsRouter);
+	app.use("/brands", brandsRouter);
 	app.use("/opt-in", optInRouter);
 	app.use("/conversations", conversationsRouter);
 	app.use("/automations", automationsRouter);

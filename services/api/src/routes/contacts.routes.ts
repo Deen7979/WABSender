@@ -4,6 +4,7 @@ import ExcelJS from "exceljs";
 import path from "path";
 import { Readable } from "stream";
 import { requireAuth } from "../middleware/auth.js";
+import { requireBrandContext } from "../middleware/brandContext.js";
 import { db } from "../db/index.js";
 import { auditMiddleware, auditLog, AuditAction, ResourceType } from "../middleware/auditLog.js";
 
@@ -66,17 +67,19 @@ const readWorkbookRows = async (buffer: Buffer, filename: string) => {
 	return rows;
 };
 
-contactsRouter.get("/", requireAuth, async (req, res) => {
+contactsRouter.get("/", requireAuth, requireBrandContext, async (req, res) => {
 	const orgId = req.auth!.orgId;
+	const brandId = req.brandId!;
 	const result = await db.query(
-		"SELECT id, phone_e164, name, custom_fields FROM contacts WHERE org_id = $1 ORDER BY created_at DESC",
-		[orgId]
+		"SELECT id, phone_e164, name, custom_fields FROM contacts WHERE org_id = $1 AND brand_id = $2 ORDER BY created_at DESC",
+		[orgId, brandId]
 	);
 	return res.json(result.rows);
 });
 
-contactsRouter.post("/", requireAuth, auditMiddleware(AuditAction.CONTACT_CREATED, ResourceType.CONTACT), async (req, res) => {
+contactsRouter.post("/", requireAuth, requireBrandContext, auditMiddleware(AuditAction.CONTACT_CREATED, ResourceType.CONTACT), async (req, res) => {
 	const orgId = req.auth!.orgId;
+	const brandId = req.brandId!;
 	const { phoneE164, name, customFields } = req.body as {
 		phoneE164?: string;
 		name?: string;
@@ -89,8 +92,8 @@ contactsRouter.post("/", requireAuth, auditMiddleware(AuditAction.CONTACT_CREATE
 
 	const normalized = normalizePhone(phoneE164);
 	const result = await db.query(
-		"INSERT INTO contacts (org_id, phone_e164, name, custom_fields) VALUES ($1, $2, $3, $4) ON CONFLICT (org_id, phone_e164) DO UPDATE SET name = EXCLUDED.name, custom_fields = EXCLUDED.custom_fields RETURNING id, phone_e164, name, custom_fields",
-		[orgId, normalized, name || null, customFields || null]
+		"INSERT INTO contacts (org_id, brand_id, phone_e164, name, custom_fields) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (org_id, brand_id, phone_e164) DO UPDATE SET name = EXCLUDED.name, custom_fields = EXCLUDED.custom_fields RETURNING id, phone_e164, name, custom_fields",
+		[orgId, brandId, normalized, name || null, customFields || null]
 	);
 
 	const contactId = result.rows[0].id;
@@ -98,8 +101,9 @@ contactsRouter.post("/", requireAuth, auditMiddleware(AuditAction.CONTACT_CREATE
 	return res.json(result.rows[0]);
 });
 
-contactsRouter.post("/import", requireAuth, upload.single("file"), async (req, res) => {
+contactsRouter.post("/import", requireAuth, requireBrandContext, upload.single("file"), async (req, res) => {
 	const orgId = req.auth!.orgId;
+	const brandId = req.brandId!;
 	if (!req.file) {
 		return res.status(400).json({ error: "file required" });
 	}
@@ -116,14 +120,14 @@ contactsRouter.post("/import", requireAuth, upload.single("file"), async (req, r
 	let imported = 0;
 	for (const row of parsed) {
 		const contactResult = await db.query(
-			"INSERT INTO contacts (org_id, phone_e164, name, custom_fields) VALUES ($1, $2, $3, $4) ON CONFLICT (org_id, phone_e164) DO UPDATE SET name = EXCLUDED.name, custom_fields = EXCLUDED.custom_fields RETURNING id",
-			[orgId, row.phone_e164, row.name, row.custom_fields]
+			"INSERT INTO contacts (org_id, brand_id, phone_e164, name, custom_fields) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (org_id, brand_id, phone_e164) DO UPDATE SET name = EXCLUDED.name, custom_fields = EXCLUDED.custom_fields RETURNING id",
+			[orgId, brandId, row.phone_e164, row.name, row.custom_fields]
 		);
 
 		const contactId = contactResult.rows[0].id;
 		await db.query(
-			"INSERT INTO opt_in_events (org_id, contact_id, event_type, source) VALUES ($1, $2, 'opt_in', 'import')",
-			[orgId, contactId]
+			"INSERT INTO opt_in_events (org_id, brand_id, contact_id, event_type, source) VALUES ($1, $2, $3, 'opt_in', 'import')",
+			[orgId, brandId, contactId]
 		);
 
 		imported += 1;

@@ -2,6 +2,7 @@ import { db } from '../db/index.js';
 import { logger } from '../utils/logger.js';
 import { whatsappPost } from '../services/whatsapp/client.js';
 import { broadcastToOrg } from '../websocket/hub.js';
+import { decryptToken } from '../utils/encryption.js';
 
 /**
  * Queue Worker
@@ -138,8 +139,8 @@ async function processQueueEntry(entry: {
     // Get WhatsApp account details
     const whatsappAccount = await db.query(
       `SELECT phone_number_id, access_token
-       FROM whatsapp_accounts
-       WHERE whatsapp_account_id = $1`,
+       FROM whatsapp_connections
+       WHERE id = $1`,
       [whatsapp_account_id]
     );
 
@@ -148,6 +149,7 @@ async function processQueueEntry(entry: {
     }
 
     const { phone_number_id, access_token } = whatsappAccount.rows[0];
+    const decryptedToken = decryptToken(access_token);
 
     // Get campaign template
     const campaign = await db.query(
@@ -193,7 +195,8 @@ async function processQueueEntry(entry: {
         to: phone_number,
         type: 'template',
         template: templatePayload,
-      }
+      },
+      decryptedToken
     );
 
     const metaMessageId = response.messages?.[0]?.id;

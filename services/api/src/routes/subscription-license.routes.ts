@@ -280,9 +280,27 @@ subscriptionLicenseRouter.get("/instances/:id", requireAuth, requireSuperAdmin, 
 			[id]
 		);
 
+		// Get recent audit logs
+		const auditLogsResult = await db.query(
+			`SELECT
+				lal.id,
+				lal.action,
+				lal.actor_id,
+				u.email AS actor_email,
+				lal.timestamp,
+				lal.details
+			FROM license_audit_logs lal
+			LEFT JOIN users u ON u.id = lal.actor_id
+			WHERE lal.license_id = $1
+			ORDER BY lal.timestamp DESC
+			LIMIT 50`,
+			[id]
+		);
+
 		return res.json({
 			license: result.rows[0],
-			activations: activationsResult.rows
+			activations: activationsResult.rows,
+			auditLogs: auditLogsResult.rows
 		});
 	} catch (error) {
 		logger.error("Error fetching license details:", error);

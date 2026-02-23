@@ -2,14 +2,14 @@ export const connectWebSocket = (
 	baseUrl: string,
 	token: string,
 	onMessage: (data: unknown) => void,
-	orgId?: string | null,
+	brandId?: string | null,
 	onError?: (error: Event) => void,
 	onClose?: (event: CloseEvent) => void
 ) => {
 	const url = new URL("/realtime", baseUrl);
 	url.searchParams.set("token", token);
-	if (orgId) {
-		url.searchParams.set("orgId", orgId);
+	if (brandId) {
+		url.searchParams.set("brandId", brandId);
 	}
 
 	const socket = new WebSocket(url.toString());

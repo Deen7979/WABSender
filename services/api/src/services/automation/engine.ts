@@ -2,6 +2,7 @@ import { db } from "../../db/index.js";
 import { whatsappPost } from "../whatsapp/client.js";
 import { broadcastToOrg } from "../../websocket/hub.js";
 import { isWithinBusinessHours, logOutOfHoursMessage } from "./businessHours.js";
+import { decryptToken } from "../../utils/encryption.js";
 
 interface AutomationRule {
 	id: string;
@@ -142,9 +143,25 @@ async function executeAction(
 		}
 
 		// Send via WhatsApp
+		const tokenResult = await db.query(
+			`SELECT access_token
+			 FROM whatsapp_connections
+			 WHERE phone_number_id = $1
+			 ORDER BY created_at DESC
+			 LIMIT 1`,
+			[context.phoneNumberId]
+		);
+
+		if ((tokenResult.rowCount ?? 0) === 0) {
+			return { success: false, error: "No brand WhatsApp token found" };
+		}
+
+		const accessToken = decryptToken(tokenResult.rows[0].access_token);
+
 		const sendResult = await whatsappPost<{ messages: Array<{ id: string }> }>(
 			`/${context.phoneNumberId}/messages`,
-			payload
+			payload,
+			accessToken
 		);
 
 		const metaMessageId = sendResult.messages?.[0]?.id;

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
+import { requireBrandContext } from "../middleware/brandContext.js";
 import { db } from "../db/index.js";
 import { broadcastToOrg } from "../websocket/hub.js";
 import { sendMessage } from "../services/messageService.js";
@@ -7,8 +8,9 @@ import { sendMessage } from "../services/messageService.js";
 export const conversationsRouter = Router();
 
 // GET /conversations - List all conversations for org with pagination
-conversationsRouter.get("/", requireAuth, async (req, res) => {
+conversationsRouter.get("/", requireAuth, requireBrandContext, async (req, res) => {
 	const orgId = req.auth!.orgId;
+	const brandId = req.brandId!;
 	
 	// Validate orgId exists
 	if (!orgId) {
@@ -27,16 +29,16 @@ conversationsRouter.get("/", requireAuth, async (req, res) => {
 			 FROM conversations c
 			 LEFT JOIN contacts co ON c.contact_id = co.id
 			 LEFT JOIN conversation_participants cp ON c.id = cp.conversation_id
-			 WHERE c.org_id = $1
+			 WHERE c.org_id = $1 AND c.brand_id = $5
 			 GROUP BY c.id, co.id
 			 ORDER BY c.last_message_at DESC NULLS LAST
 			 LIMIT $3 OFFSET $4`,
-			[orgId, req.auth!.userId, limit, offset]
+			[orgId, req.auth!.userId, limit, offset, brandId]
 		);
 
 		const countResult = await db.query(
-			"SELECT COUNT(*) as count FROM conversations WHERE org_id = $1",
-			[orgId]
+			"SELECT COUNT(*) as count FROM conversations WHERE org_id = $1 AND brand_id = $2",
+			[orgId, brandId]
 		);
 
 		return res.json({
@@ -51,8 +53,9 @@ conversationsRouter.get("/", requireAuth, async (req, res) => {
 });
 
 // GET /conversations/:id - Get conversation details
-conversationsRouter.get("/:id", requireAuth, async (req, res) => {
+conversationsRouter.get("/:id", requireAuth, requireBrandContext, async (req, res) => {
 	const orgId = req.auth!.orgId;
+	const brandId = req.brandId!;
 	const conversationId = req.params.id;
 
 	if (!orgId) {
@@ -65,8 +68,8 @@ conversationsRouter.get("/:id", requireAuth, async (req, res) => {
 				co.phone_e164, co.name
 			 FROM conversations c
 			 LEFT JOIN contacts co ON c.contact_id = co.id
-			 WHERE c.id = $1 AND c.org_id = $2`,
-			[conversationId, orgId]
+			 WHERE c.id = $1 AND c.org_id = $2 AND c.brand_id = $3`,
+			[conversationId, orgId, brandId]
 		);
 
 		if (result.rowCount === 0) {
@@ -80,8 +83,9 @@ conversationsRouter.get("/:id", requireAuth, async (req, res) => {
 });
 
 // GET /conversations/:id/messages - Get paginated message history
-conversationsRouter.get("/:id/messages", requireAuth, async (req, res) => {
+conversationsRouter.get("/:id/messages", requireAuth, requireBrandContext, async (req, res) => {
 	const orgId = req.auth!.orgId;
+	const brandId = req.brandId!;
 	const conversationId = req.params.id;
 
 	if (!orgId) {
@@ -94,8 +98,8 @@ conversationsRouter.get("/:id/messages", requireAuth, async (req, res) => {
 	try {
 		// Verify conversation belongs to org
 		const convResult = await db.query(
-			"SELECT id FROM conversations WHERE id = $1 AND org_id = $2",
-			[conversationId, orgId]
+			"SELECT id FROM conversations WHERE id = $1 AND org_id = $2 AND brand_id = $3",
+			[conversationId, orgId, brandId]
 		);
 
 		if (convResult.rowCount === 0) {
@@ -135,8 +139,9 @@ conversationsRouter.get("/:id/messages", requireAuth, async (req, res) => {
 });
 
 // POST /conversations/:id/reply - Send manual reply (text or template)
-conversationsRouter.post("/:id/reply", requireAuth, async (req, res) => {
+conversationsRouter.post("/:id/reply", requireAuth, requireBrandContext, async (req, res) => {
 	const orgId = req.auth!.orgId;
+	const brandId = req.brandId!;
 	const conversationId = req.params.id;
 	const { type, templateId, text, variables, mediaUrl } = req.body as {
 		type?: string;
@@ -156,8 +161,8 @@ conversationsRouter.post("/:id/reply", requireAuth, async (req, res) => {
 			`SELECT c.id, c.contact_id, co.phone_e164
 			 FROM conversations c
 			 LEFT JOIN contacts co ON c.contact_id = co.id
-			 WHERE c.id = $1 AND c.org_id = $2`,
-			[conversationId, orgId]
+			 WHERE c.id = $1 AND c.org_id = $2 AND c.brand_id = $3`,
+			[conversationId, orgId, brandId]
 		);
 
 		if (convResult.rowCount === 0) {
@@ -169,8 +174,8 @@ conversationsRouter.post("/:id/reply", requireAuth, async (req, res) => {
 		// Check opt-in status
 		const optInResult = await db.query(
 			`SELECT COUNT(*) as count FROM opt_in_events
-			 WHERE org_id = $1 AND contact_id = $2 AND event_type = 'opt_in'`,
-			[orgId, contactId]
+			 WHERE org_id = $1 AND brand_id = $2 AND contact_id = $3 AND event_type = 'opt_in'`,
+			[orgId, brandId, contactId]
 		);
 
 		if (parseInt(optInResult.rows[0].count) === 0) {
@@ -179,8 +184,8 @@ conversationsRouter.post("/:id/reply", requireAuth, async (req, res) => {
 
 		// Get WhatsApp account
 		const accountResult = await db.query(
-			"SELECT phone_number_id FROM whatsapp_accounts WHERE org_id = $1 AND is_active = true ORDER BY created_at ASC LIMIT 1",
-			[orgId]
+			"SELECT phone_number_id FROM whatsapp_connections WHERE brand_id = $1 ORDER BY created_at DESC LIMIT 1",
+			[brandId]
 		);
 
 		if (accountResult.rowCount === 0) {
@@ -192,6 +197,7 @@ conversationsRouter.post("/:id/reply", requireAuth, async (req, res) => {
 		// Send message using message service
 		const sendResult = await sendMessage({
 			orgId,
+			brandId,
 			contactId,
 			conversationId,
 			phoneNumberId,
@@ -216,7 +222,7 @@ conversationsRouter.post("/:id/reply", requireAuth, async (req, res) => {
 });
 
 // POST /conversations/:id/read - Mark conversation as read
-conversationsRouter.post("/:id/read", requireAuth, async (req, res) => {
+conversationsRouter.post("/:id/read", requireAuth, requireBrandContext, async (req, res) => {
 	const orgId = req.auth!.orgId;
 	const conversationId = req.params.id;
 
@@ -240,7 +246,7 @@ conversationsRouter.post("/:id/read", requireAuth, async (req, res) => {
 });
 
 // POST /conversations/:id/close - Close conversation
-conversationsRouter.post("/:id/close", requireAuth, async (req, res) => {
+conversationsRouter.post("/:id/close", requireAuth, requireBrandContext, async (req, res) => {
 	const orgId = req.auth!.orgId;
 	const conversationId = req.params.id;
 	const { autoReopenOnReply } = req.body as { autoReopenOnReply?: boolean };
@@ -271,7 +277,7 @@ conversationsRouter.post("/:id/close", requireAuth, async (req, res) => {
 });
 
 // POST /conversations/:id/archive - Archive conversation
-conversationsRouter.post("/:id/archive", requireAuth, async (req, res) => {
+conversationsRouter.post("/:id/archive", requireAuth, requireBrandContext, async (req, res) => {
 	const orgId = req.auth!.orgId;
 	const conversationId = req.params.id;
 

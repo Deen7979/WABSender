@@ -1,0 +1,728 @@
+/* ============================================
+   Manage Brands Page - Card Container Layout
+   ============================================ */
+
+.manage-brands-container {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 24px 16px;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #f0f4f8 100%);
+}
+
+.brands-card {
+  width: 100%;
+  max-width: 1200px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+/* ========== Header ========== */
+
+.brands-header {
+  padding: 24px 28px 16px;
+  border-bottom: 1px solid #e5e9f0;
+}
+
+.brands-header h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: #1a202c;
+  letter-spacing: -0.5px;
+}
+
+/* ========== Top Bar (Search + Dropdown + Create) ========== */
+
+.brands-top-bar {
+  padding: 20px 28px;
+  border-bottom: 1px solid #e5e9f0;
+  background-color: #fafbfc;
+}
+
+.search-and-control {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.search-wrapper {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 12px 10px 36px;
+  border: 1px solid #cbd5e0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  background-color: white;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #4299e1;
+  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+}
+
+.search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #a0aec0;
+  pointer-events: none;
+}
+
+.entries-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.entries-control label {
+  font-size: 13px;
+  color: #4a5568;
+  font-weight: 500;
+}
+
+.entries-dropdown {
+  padding: 8px 12px;
+  border: 1px solid #cbd5e0;
+  border-radius: 6px;
+  font-size: 13px;
+  background-color: white;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.entries-dropdown:hover {
+  border-color: #a0aec0;
+}
+
+.entries-dropdown:focus {
+  outline: none;
+  border-color: #4299e1;
+  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+}
+
+.btn {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background-color: #48bb78;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #38a169;
+  box-shadow: 0 2px 6px rgba(72, 187, 120, 0.3);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ========== Error Banner ========== */
+
+.error-banner {
+  padding: 16px 28px;
+  background-color: #fed7d7;
+  border: 1px solid #fc8181;
+  color: #c53030;
+  font-size: 14px;
+  border-radius: 8px;
+  margin: 0 20px 16px;
+}
+
+/* ========== Loading State ========== */
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 28px;
+  gap: 16px;
+  color: #718096;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #4299e1;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-state p {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* ========== Empty State ========== */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 28px;
+  text-align: center;
+  color: #718096;
+}
+
+.empty-state svg {
+  color: #cbd5e0;
+  margin-bottom: 16px;
+}
+
+.empty-state h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: #2d3748;
+  font-weight: 600;
+}
+
+.empty-state p {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: #718096;
+}
+
+/* ========== Table Wrapper ========== */
+
+.table-wrapper {
+  overflow-x: auto;
+  padding: 0 28px;
+  margin: 16px 0;
+}
+
+/* ========== Table Styles ========== */
+
+.brands-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.brands-table thead {
+  background-color: #f7fafc;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.brands-table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #2d3748;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.brands-table tbody tr {
+  border-bottom: 1px solid #e2e8f0;
+  transition: background-color 0.15s;
+}
+
+.brands-table tbody tr:hover {
+  background-color: #f7fafc;
+}
+
+.brands-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.brands-table td {
+  padding: 14px 16px;
+  color: #2d3748;
+  vertical-align: middle;
+}
+
+/* Cell Styling */
+
+.cell-brand-name {
+  font-weight: 500;
+}
+
+.brand-name-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.brand-name {
+  color: #1a202c;
+  font-weight: 600;
+}
+
+.brand-id {
+  font-size: 12px;
+  color: #a0aec0;
+}
+
+.cell-company,
+.cell-phone {
+  color: #4a5568;
+  font-size: 13px;
+}
+
+.cell-created {
+  color: #718096;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.cell-status {
+  text-align: center;
+}
+
+.status-active-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  background-color: #c6f6d5;
+  color: #22543d;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ========== Actions Column ========== */
+
+.cell-actions {
+  text-align: right;
+}
+
+.actions-group {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #e2e8f0;
+  background-color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #4a5568;
+  font-size: 0;
+  padding: 0;
+}
+
+.action-btn:hover:not(:disabled) {
+  border-color: #cbd5e0;
+  background-color: #f7fafc;
+}
+
+.action-whatsapp {
+  color: #25d366;
+}
+
+.action-whatsapp:hover:not(:disabled) {
+  background-color: #eafce5;
+  border-color: #25d366;
+}
+
+.action-set-active {
+  color: #4299e1;
+}
+
+.action-set-active:hover:not(:disabled) {
+  background-color: #ebf8ff;
+  border-color: #4299e1;
+}
+
+.action-set-active:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-delete {
+  color: #f56565;
+}
+
+.action-delete:hover:not(:disabled) {
+  background-color: #fff5f5;
+  border-color: #f56565;
+}
+
+.action-delete:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ========== Pagination Footer ========== */
+
+.brands-footer {
+  padding: 20px 28px;
+  border-top: 1px solid #e5e9f0;
+  background-color: #fafbfc;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.pagination-btn {
+  padding: 8px 14px;
+  border: 1px solid #cbd5e0;
+  background-color: white;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #4a5568;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  border-color: #4299e1;
+  background-color: #ebf8ff;
+  color: #2c5aa0;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pagination-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #4a5568;
+  white-space: nowrap;
+}
+
+.page-display {
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.results-display {
+  color: #718096;
+}
+
+/* ========== Spinner Small ========== */
+
+.spinner-small {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #e2e8f0;
+  border-top-color: #4a5568;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+/* ========== Responsive Behavior ========== */
+
+@media (max-width: 1024px) {
+  .manage-brands-container {
+    padding: 16px 12px;
+  }
+
+  .brands-card {
+    border-radius: 10px;
+  }
+
+  .brands-header,
+  .brands-top-bar,
+  .table-wrapper,
+  .brands-footer {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .search-and-control {
+    gap: 12px;
+  }
+
+  .search-wrapper {
+    min-width: 160px;
+  }
+}
+
+@media (max-width: 768px) {
+  .manage-brands-container {
+    padding: 12px 8px;
+  }
+
+  .brands-header {
+    padding: 16px 16px 12px;
+  }
+
+  .brands-header h2 {
+    font-size: 20px;
+  }
+
+  .brands-top-bar {
+    padding: 16px 16px;
+  }
+
+  .search-and-control {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .search-wrapper {
+    min-width: 100%;
+  }
+
+  .entries-control {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .entries-dropdown {
+    flex: 1;
+    min-width: 80px;
+  }
+
+  .btn-primary {
+    width: 100%;
+  }
+
+  .brands-table {
+    font-size: 13px;
+  }
+
+  .brands-table th,
+  .brands-table td {
+    padding: 10px 12px;
+  }
+
+  .brands-table th {
+    font-size: 11px;
+  }
+
+  .table-wrapper {
+    padding: 12px 16px;
+    margin: 12px 0;
+    overflow-x: auto;
+  }
+
+  .table-wrapper::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .table-wrapper::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+  }
+
+  .table-wrapper::-webkit-scrollbar-thumb {
+    background: #cbd5e0;
+    border-radius: 10px;
+  }
+
+  .table-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #a0aec0;
+  }
+
+  .action-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .action-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .actions-group {
+    gap: 6px;
+  }
+
+  .brands-footer {
+    padding: 16px 16px;
+  }
+
+  .pagination {
+    gap: 12px;
+    justify-content: center;
+  }
+
+  .pagination-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .pagination-info {
+    font-size: 12px;
+    flex-direction: column;
+    gap: 4px;
+    text-align: center;
+  }
+
+  .empty-state {
+    padding: 60px 20px;
+  }
+
+  .empty-state svg {
+    width: 36px;
+    height: 36px;
+  }
+
+  .empty-state h3 {
+    font-size: 16px;
+  }
+
+  .empty-state p {
+    font-size: 13px;
+  }
+
+  .brand-id {
+    font-size: 11px;
+  }
+
+  .status-active-badge {
+    padding: 3px 10px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .manage-brands-container {
+    padding: 8px 4px;
+  }
+
+  .brands-card {
+    border-radius: 8px;
+  }
+
+  .brands-header {
+    padding: 12px 12px 10px;
+  }
+
+  .brands-header h2 {
+    font-size: 18px;
+  }
+
+  .brands-top-bar {
+    padding: 12px 12px;
+  }
+
+  .search-input {
+    padding: 8px 10px 8px 32px;
+    font-size: 13px;
+  }
+
+  .search-icon {
+    left: 8px;
+    width: 14px;
+    height: 14px;
+  }
+
+  .entries-dropdown {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  .btn {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .table-wrapper {
+    padding: 10px 12px;
+    margin: 10px 0;
+  }
+
+  .brands-table {
+    font-size: 12px;
+  }
+
+  .brands-table th,
+  .brands-table td {
+    padding: 8px 8px;
+  }
+
+  .brands-table th {
+    font-size: 10px;
+  }
+
+  .brand-name {
+    font-size: 13px;
+  }
+
+  .cell-company,
+  .cell-phone,
+  .cell-created {
+    font-size: 12px;
+  }
+
+  .action-btn {
+    width: 30px;
+    height: 30px;
+  }
+
+  .action-btn svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  .brand-id {
+    font-size: 10px;
+  }
+
+  .status-active-badge {
+    padding: 2px 8px;
+    font-size: 10px;
+  }
+
+  .pagination-btn {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+
+  .pagination-info {
+    font-size: 11px;
+  }
+
+  .error-banner {
+    padding: 12px 16px;
+    font-size: 13px;
+    margin: 0 12px 12px;
+  }
+}

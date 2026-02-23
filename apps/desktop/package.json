@@ -1,7 +1,7 @@
 {
   "name": "whatsapp-desktop",
   "private": true,
-  "version": "1.2.4",
+  "version": "1.2.5",
   "repository": {
     "type": "git",
     "url": "https://github.com/Deen7979/WABSender.git"
@@ -16,6 +16,8 @@
     "build": "npm run build:renderer && npm run build:main",
     "dist": "npm run build && electron-builder --publish never",
     "dist:publish": "npm run build && electron-builder --publish always",
+    "release:verify": "node scripts/release-verify.mjs --verify-only",
+    "release:publish:verified": "node scripts/release-verify.mjs --publish --max-retries=3",
     "lint": "echo TODO"
   },
   "dependencies": {

@@ -66,6 +66,7 @@ type AuditLog = {
 	id: string;
 	action: string;
 	actor_id: string;
+	actor_email?: string | null;
 	timestamp: string;
 	details: Record<string, any>;
 };
@@ -217,8 +218,10 @@ export const SubscriptionLicenseManagement: React.FC<SubscriptionLicenseManageme
 				...prev,
 				[licenseId]: response.activations || []
 			}));
-			// Optionally load audit logs
-			// setAuditLogs(prev => ({ ...prev, [licenseId]: response.auditLogs || [] }));
+			setAuditLogs(prev => ({
+				...prev,
+				[licenseId]: response.auditLogs || response.audit_logs || []
+			}));
 		} catch (err) {
 			setError(err instanceof Error ? err.message : 'Failed to load details');
 		} finally {
@@ -246,6 +249,12 @@ export const SubscriptionLicenseManagement: React.FC<SubscriptionLicenseManageme
 		if (diffMins < 60) return `${diffMins} min ago`;
 		if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
 		return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+	};
+
+	const formatAuditDetails = (details: Record<string, any>) => {
+		if (!details || Object.keys(details).length === 0) return '-';
+		const text = JSON.stringify(details);
+		return text.length > 120 ? `${text.substring(0, 120)}...` : text;
 	};
 
 	// Helper: Get status badge
@@ -463,6 +472,38 @@ export const SubscriptionLicenseManagement: React.FC<SubscriptionLicenseManageme
 													</tbody>
 												</table>
 											)}
+
+										<div className="audit-log-section">
+											<h4>Audit Log</h4>
+											{(auditLogs[license.id] || []).length === 0 ? (
+												<p className="no-audit-logs">No audit events recorded</p>
+											) : (
+												<table className="audit-table">
+													<thead>
+														<tr>
+															<th>When</th>
+															<th>Action</th>
+															<th>Actor</th>
+															<th>Details</th>
+														</tr>
+													</thead>
+													<tbody>
+														{(auditLogs[license.id] || []).map(log => (
+															<tr key={log.id}>
+																<td>{formatDate(log.timestamp)}</td>
+																<td>
+																	<span className="audit-action">{log.action}</span>
+																</td>
+																<td>{log.actor_email || (log.actor_id ? `${log.actor_id.substring(0, 8)}...` : 'system')}</td>
+																<td className="audit-details" title={JSON.stringify(log.details || {})}>
+																	{formatAuditDetails(log.details || {})}
+																</td>
+															</tr>
+														))}
+													</tbody>
+												</table>
+											)}
+										</div>
 										</div>
 									)}
 								</div>

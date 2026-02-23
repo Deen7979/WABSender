@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
+import { requireBrandContext } from "../middleware/brandContext.js";
 import { db } from "../db/index.js";
-import { syncTemplatesForOrg, getApprovedTemplates, manualSyncTemplates } from "../services/templateSync.js";
+import { getApprovedTemplates, manualSyncTemplatesForBrand } from "../services/templateSync.js";
 import { logger } from "../utils/logger.js";
 import { auditMiddleware, AuditAction, ResourceType } from "../middleware/auditLog.js";
 
@@ -12,16 +13,17 @@ export const templatesRouter = Router();
  * List all APPROVED templates for the organization
  * Filtered to only show templates available for campaigns
  */
-templatesRouter.get("/", requireAuth, async (req, res) => {
+templatesRouter.get("/", requireAuth, requireBrandContext, async (req, res) => {
 	try {
 		const orgId = req.auth!.orgId;
+		const brandId = req.brandId!;
 		
 		if (!orgId) {
 			logger.warn("Templates endpoint called without orgId", { auth: req.auth });
 			return res.status(400).json({ error: "Invalid org context" });
 		}
 		
-		const templates = await getApprovedTemplates(orgId);
+		const templates = await getApprovedTemplates(orgId, brandId);
 		res.json(templates);
 	} catch (err: any) {
 		logger.error("Failed to list templates", { error: err.message });
@@ -34,16 +36,17 @@ templatesRouter.get("/", requireAuth, async (req, res) => {
  * Manually trigger template synchronization from Meta
  * Idempotent - can be called multiple times safely
  */
-templatesRouter.post("/sync", requireAuth, auditMiddleware(AuditAction.TEMPLATE_SYNCED, ResourceType.TEMPLATE), async (req, res) => {
+templatesRouter.post("/sync", requireAuth, requireBrandContext, auditMiddleware(AuditAction.TEMPLATE_SYNCED, ResourceType.TEMPLATE), async (req, res) => {
 	try {
 		const orgId = req.auth!.orgId;
+		const brandId = req.brandId!;
 		
 		if (!orgId) {
 			logger.warn("Template sync endpoint called without orgId", { auth: req.auth });
 			return res.status(400).json({ error: "Invalid org context" });
 		}
 		
-		const result = await manualSyncTemplates(orgId);
+		const result = await manualSyncTemplatesForBrand(orgId, brandId);
 
 		if (!result.success) {
 			return res.status(400).json({
@@ -75,9 +78,10 @@ templatesRouter.post("/sync", requireAuth, auditMiddleware(AuditAction.TEMPLATE_
  * GET /templates/status
  * Get template sync status and statistics
  */
-templatesRouter.get("/status", requireAuth, async (req, res) => {
+templatesRouter.get("/status", requireAuth, requireBrandContext, async (req, res) => {
 	try {
 		const orgId = req.auth!.orgId;
+		const brandId = req.brandId!;
 
 		if (!orgId) {
 			logger.warn("Template status endpoint called without orgId", { auth: req.auth });
@@ -90,8 +94,8 @@ templatesRouter.get("/status", requireAuth, async (req, res) => {
 				SUM(CASE WHEN status = 'APPROVED' THEN 1 ELSE 0 END) as approved_count,
 				MAX(updated_at) as last_sync
 			 FROM templates 
-			 WHERE org_id = $1`,
-			[orgId]
+			 WHERE org_id = $1 AND brand_id = $2`,
+			[orgId, brandId]
 		);
 
 		const row = result.rows[0];

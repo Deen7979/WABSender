@@ -2,6 +2,7 @@ import { db } from "../db/index.js";
 import { logger } from "../utils/logger.js";
 import { whatsappPost } from "./whatsapp/client.js";
 import { broadcastToOrg } from "../websocket/hub.js";
+import { decryptToken } from "../utils/encryption.js";
 
 /**
  * Phase 4.7: Outbound Messaging Service
@@ -28,6 +29,7 @@ import { broadcastToOrg } from "../websocket/hub.js";
 
 interface SendMessageParams {
 	orgId: string;
+	brandId: string;
 	contactId: string;
 	conversationId: string;
 	phoneNumberId: string;
@@ -71,6 +73,7 @@ const MAX_RETRY_DELAY_MS = 6000;
 async function checkCustomerCareWindow(
 	contactId: string,
 	orgId: string,
+	brandId: string,
 	useTemplate: boolean
 ): Promise<{ withinWindow: boolean; lastMessageAt?: string; expiresAt?: string }> {
 	try {
@@ -83,8 +86,8 @@ async function checkCustomerCareWindow(
 		const result = await db.query(
 			`SELECT MAX(created_at) as last_message_at
 			 FROM messages
-			 WHERE contact_id = $1 AND org_id = $2 AND direction = 'inbound'`,
-			[contactId, orgId]
+			 WHERE contact_id = $1 AND org_id = $2 AND brand_id = $3 AND direction = 'inbound'`,
+			[contactId, orgId, brandId]
 		);
 
 		const lastMessageAt = result.rows[0]?.last_message_at as string | null;
@@ -120,14 +123,15 @@ async function checkCustomerCareWindow(
  */
 async function validateTemplate(
 	templateId: string,
-	orgId: string
+	orgId: string,
+	brandId: string
 ): Promise<{ valid: boolean; template?: TemplateMeta; error?: string }> {
 	try {
 		const result = await db.query(
 			`SELECT id, name, language, status, components
 			 FROM templates
-			 WHERE id = $1 AND org_id = $2`,
-			[templateId, orgId]
+			 WHERE id = $1 AND org_id = $2 AND brand_id = $3`,
+			[templateId, orgId, brandId]
 		);
 
 		if (result.rowCount === 0) {
@@ -216,12 +220,13 @@ function buildTemplateParameters(templateParams?: Record<string, string>) {
 
 async function sendMessageViaMetaAPI(params: {
 	phoneNumberId: string;
+	accessToken: string;
 	recipientPhoneE164: string;
 	messageBody?: string;
 	template?: TemplateMeta;
 	templateParams?: Record<string, string>;
 }): Promise<string> {
-	const { phoneNumberId, recipientPhoneE164, messageBody, template, templateParams } = params;
+	const { phoneNumberId, accessToken, recipientPhoneE164, messageBody, template, templateParams } = params;
 
 	if (template) {
 		const parameters = buildTemplateParameters(templateParams);
@@ -238,7 +243,8 @@ async function sendMessageViaMetaAPI(params: {
 
 		const result = await whatsappPost<{ messages: Array<{ id: string }> }>(
 			`/${phoneNumberId}/messages`,
-			payload
+			payload,
+			accessToken
 		);
 
 		const metaMessageId = result.messages?.[0]?.id;
@@ -261,7 +267,8 @@ async function sendMessageViaMetaAPI(params: {
 
 	const result = await whatsappPost<{ messages: Array<{ id: string }> }>(
 		`/${phoneNumberId}/messages`,
-		payload
+		payload,
+		accessToken
 	);
 
 	const metaMessageId = result.messages?.[0]?.id;
@@ -274,12 +281,13 @@ async function sendMessageViaMetaAPI(params: {
 async function sendWithRetry(params: {
 	messageId: string;
 	phoneNumberId: string;
+	accessToken: string;
 	recipientPhoneE164: string;
 	messageBody?: string;
 	template?: TemplateMeta;
 	templateParams?: Record<string, string>;
 }): Promise<string> {
-	const { messageId, phoneNumberId, recipientPhoneE164, messageBody, template, templateParams } = params;
+	const { messageId, phoneNumberId, accessToken, recipientPhoneE164, messageBody, template, templateParams } = params;
 	let attempt = 0;
 	let lastError: string | null = null;
 
@@ -291,6 +299,7 @@ async function sendWithRetry(params: {
 
 			return await sendMessageViaMetaAPI({
 				phoneNumberId,
+				accessToken,
 				recipientPhoneE164,
 				messageBody,
 				template,
@@ -350,6 +359,7 @@ async function sendWithRetry(params: {
 export async function sendMessage(params: SendMessageParams): Promise<SendMessageResult> {
 	const {
 		orgId,
+		brandId,
 		contactId,
 		conversationId,
 		phoneNumberId,
@@ -362,7 +372,7 @@ export async function sendMessage(params: SendMessageParams): Promise<SendMessag
 
 	try {
 		// Validate inputs
-		if (!orgId || !contactId || !conversationId || !phoneNumberId || !recipientPhoneE164) {
+		if (!orgId || !brandId || !contactId || !conversationId || !phoneNumberId || !recipientPhoneE164) {
 			return {
 				success: false,
 				messageId: "",
@@ -384,7 +394,7 @@ export async function sendMessage(params: SendMessageParams): Promise<SendMessag
 
 		// Phase 4.7: Validate template
 		if (useTemplate && templateId) {
-			const templateValidation = await validateTemplate(templateId, orgId);
+			const templateValidation = await validateTemplate(templateId, orgId, brandId);
 			if (!templateValidation.valid) {
 				return {
 					success: false,
@@ -406,7 +416,7 @@ export async function sendMessage(params: SendMessageParams): Promise<SendMessag
 		}
 
 		// Phase 4.7: Check customer care window
-		const windowCheck = await checkCustomerCareWindow(contactId, orgId, useTemplate);
+		const windowCheck = await checkCustomerCareWindow(contactId, orgId, brandId, useTemplate);
 		if (!windowCheck.withinWindow) {
 			return {
 				success: false,
@@ -415,16 +425,36 @@ export async function sendMessage(params: SendMessageParams): Promise<SendMessag
 			};
 		}
 
+		const tokenResult = await db.query(
+			`SELECT access_token
+			 FROM whatsapp_connections
+			 WHERE brand_id = $1 AND phone_number_id = $2
+			 ORDER BY created_at DESC
+			 LIMIT 1`,
+			[brandId, phoneNumberId]
+		);
+
+		if ((tokenResult.rowCount ?? 0) === 0) {
+			return {
+				success: false,
+				messageId: "",
+				error: "No brand WhatsApp connection found",
+			};
+		}
+
+		const accessToken = decryptToken(tokenResult.rows[0].access_token);
+
 		// Insert outbound message with 'sending' status
 		const insertResult = await db.query(
 			`INSERT INTO messages (
-				org_id, conversation_id, contact_id,
+				org_id, brand_id, conversation_id, contact_id,
 				direction, body, status,
 				template_id, retention_policy, template_params
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 			 RETURNING id`,
 			[
 				orgId,
+				brandId,
 				conversationId,
 				contactId,
 				"outbound",
@@ -450,6 +480,7 @@ export async function sendMessage(params: SendMessageParams): Promise<SendMessag
 			metaMessageId = await sendWithRetry({
 				messageId,
 				phoneNumberId,
+				accessToken,
 				recipientPhoneE164,
 				messageBody,
 				template: templateMeta,
@@ -523,16 +554,17 @@ export async function sendMessage(params: SendMessageParams): Promise<SendMessag
 export async function getMessageHistory(
 	contactId: string,
 	orgId: string,
+	brandId: string,
 	limit: number = 10
 ): Promise<Array<{ id: string; direction: string; created_at: string }>> {
 	try {
 		const result = await db.query(
 			`SELECT id, direction, created_at
 			 FROM messages
-			 WHERE contact_id = $1 AND org_id = $2
+			 WHERE contact_id = $1 AND org_id = $2 AND brand_id = $3
 			 ORDER BY created_at DESC
-			 LIMIT $3`,
-			[contactId, orgId, limit]
+			 LIMIT $4`,
+			[contactId, orgId, brandId, limit]
 		);
 
 		return result.rows;
@@ -554,11 +586,11 @@ export async function retryFailedMessage(
 ): Promise<SendMessageResult> {
 	try {
 		const result = await db.query(
-			`SELECT m.id, m.org_id, m.contact_id, m.conversation_id, m.body, m.template_id, m.status,
+			`SELECT m.id, m.org_id, m.brand_id, m.contact_id, m.conversation_id, m.body, m.template_id, m.status,
 				m.template_params, wa.phone_number_id, c.phone_e164, t.name as template_name, t.language as template_language
 			 FROM messages m
 			 JOIN contacts c ON c.id = m.contact_id
-			 JOIN whatsapp_accounts wa ON wa.org_id = m.org_id AND wa.is_active = true
+			 JOIN whatsapp_connections wa ON wa.brand_id = m.brand_id
 			 LEFT JOIN templates t ON t.id = m.template_id
 			 WHERE m.id = $1 AND m.org_id = $2
 			 LIMIT 1`,
@@ -581,9 +613,25 @@ export async function retryFailedMessage(
 			? (typeof row.template_params === "string" ? JSON.parse(row.template_params) : row.template_params)
 			: undefined;
 
+		const tokenResult = await db.query(
+			`SELECT access_token
+			 FROM whatsapp_connections
+			 WHERE brand_id = $1 AND phone_number_id = $2
+			 ORDER BY created_at DESC
+			 LIMIT 1`,
+			[row.brand_id, row.phone_number_id]
+		);
+
+		if ((tokenResult.rowCount ?? 0) === 0) {
+			return { success: false, messageId, error: "No brand WhatsApp token found" };
+		}
+
+		const accessToken = decryptToken(tokenResult.rows[0].access_token);
+
 		const metaMessageId = await sendWithRetry({
 			messageId,
 			phoneNumberId: row.phone_number_id,
+			accessToken,
 			recipientPhoneE164: row.phone_e164,
 			messageBody: row.template_id ? undefined : row.body,
 			template: templateMeta,
